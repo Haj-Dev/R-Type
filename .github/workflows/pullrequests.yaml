@@ -1,0 +1,112 @@
+name: Pull request checks
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+
+permissions:
+  contents: write
+
+jobs:
+  # ---------- Job 1: compile ----------
+  build:
+    name: Build
+    runs-on: self-hosted
+    container:
+      image: inkurey22/nix-devenv
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Build
+        run: devenv shell -- build-linux
+
+      # clang-tidy needs the compile database, and the next job runs in a fresh container
+      - name: Upload compile_commands.json
+        uses: actions/upload-artifact@v7
+        with:
+          name: compile-commands
+          path: compile_commands.json
+
+  # ---------- Job 2: clang-tidy --fix, commit & push ----------
+  lint:
+    name: Lint
+    needs: build
+    runs-on: self-hosted
+    container:
+      image: inkurey22/nix-devenv
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          submodules: recursive
+
+      - name: Download compile_commands.json
+        uses: actions/download-artifact@v8
+        with:
+          name: compile-commands
+
+      - name: Run clang-tidy with fixes
+        run: |
+          devenv shell -- run-clang-tidy -p . -fix '^((?!thirdparty).)*$'
+
+      - name: Commit and push lint fixes
+        # Can't push to forks with GITHUB_TOKEN
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          if git diff --quiet; then
+            echo "No lint changes"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -u
+          git commit -m "ci: apply clang-tidy fixes"
+          git push
+
+  # ---------- Job 3: clang-format, commit & push ----------
+  format:
+    name: Format
+    needs: lint
+    runs-on: self-hosted
+    container:
+      image: inkurey22/nix-devenv
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.head_ref }} # picks up the lint commit, if any
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply clang-format
+        run: |
+          devenv shell -- bash -c "
+            find . \( -path ./.git -o -path ./thirdparty \) -prune -o \
+              \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' \
+                 -o -name '*.hpp' -o -name '*.h' -o -name '*.hh' \) \
+              -print0 | xargs -0 -n1 clang-format -i
+          "
+
+      - name: Commit and push formatting changes
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          if git diff --quiet; then
+            echo "No formatting changes"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -u
+          git commit -m "ci: apply clang-format"
+          git push
