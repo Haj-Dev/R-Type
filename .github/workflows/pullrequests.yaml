@@ -28,14 +28,14 @@ jobs:
           submodules: recursive
 
       - name: Build
-        run: devenv shell -- build-linux
+        run: devenv shell -- build
 
       # clang-tidy needs the compile database, and the next job runs in a fresh container
       - name: Upload compile_commands.json
         uses: actions/upload-artifact@v7
         with:
           name: compile-commands
-          path: compile_commands.json
+          path: ./build-debug/compile_commands.json
 
   # ---------- Job 2: clang-tidy --fix, commit & push ----------
   lint:
