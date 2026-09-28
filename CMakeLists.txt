@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+option(BUILD_TESTING "Build unit tests" ON)
+
 # ---------------------------------------------------------------------------
 # Dependencies via CPM
 # ---------------------------------------------------------------------------
@@ -71,22 +73,93 @@ if(asio_ADDED)
   endif()
 endif()
 
+# --- GoogleTest -------------------------------------------------------------
+
+if(BUILD_TESTING)
+  enable_testing()
+
+  # Windows: use the shared CRT so gtest matches the app's runtime settings
+  set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+  set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+
+  CPMAddPackage(
+    NAME googletest
+    GITHUB_REPOSITORY google/googletest
+    GIT_TAG v1.17.0
+    GIT_SHALLOW TRUE
+  )
+
+  include(GoogleTest)
+endif()
+
+# ---------------------------------------------------------------------------
+# Shared build settings
+# ---------------------------------------------------------------------------
+
+# Warning flags live on an INTERFACE target so they only apply to our own
+# targets (never to raylib/asio/googletest) and work for header-only libs too.
+add_library(rtype_warnings INTERFACE)
+target_compile_options(rtype_warnings INTERFACE
+  -Wall -Wextra -Wpedantic -pedantic-errors
+)
+
+# Applies platform-specific link settings to one of our executables.
+function(rtype_configure_executable target)
+  target_link_libraries(${target} PRIVATE rtype_warnings)
+
+  if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    # Raylib/GLFW needs these system libs on Windows
+    target_link_libraries(${target} PRIVATE winmm gdi32)
+
+    # Statically link the mingw runtime so the .exe doesn't need extra DLLs
+    target_link_options(${target} PRIVATE
+      -static-libgcc -static-libstdc++ -static
+    )
+  endif()
+endfunction()
+
+# ---------------------------------------------------------------------------
+# Core library (everything except main.cpp, so tests can link against it)
+# ---------------------------------------------------------------------------
+file(GLOB_RECURSE RTYPE_CORE_SOURCES CONFIGURE_DEPENDS
+  "${CMAKE_SOURCE_DIR}/src/*.cpp"
+)
+list(FILTER RTYPE_CORE_SOURCES EXCLUDE REGEX "/src/main\\.cpp$")
+
+if(RTYPE_CORE_SOURCES)
+  add_library(rtype_core STATIC ${RTYPE_CORE_SOURCES})
+  target_link_libraries(rtype_core PRIVATE rtype_warnings)
+  set(_core_scope PUBLIC)
+else()
+  # Nothing besides main.cpp yet: header-only placeholder so the
+  # target structure is already in place once you add sources.
+  add_library(rtype_core INTERFACE)
+  set(_core_scope INTERFACE)
+endif()
+
+target_include_directories(rtype_core ${_core_scope} "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(rtype_core ${_core_scope} raylib asio)
+
 # ---------------------------------------------------------------------------
 # Application target
 # ---------------------------------------------------------------------------
 add_executable(${PROJECT_NAME} src/main.cpp)
-target_link_libraries(${PROJECT_NAME} PRIVATE raylib asio)
+target_link_libraries(${PROJECT_NAME} PRIVATE rtype_core)
+rtype_configure_executable(${PROJECT_NAME})
 
-target_compile_options(${PROJECT_NAME} PRIVATE
-  -Wall -Wextra -Wpedantic -pedantic-errors
-)
-
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  # Raylib/GLFW needs these system libs on Windows
-  target_link_libraries(${PROJECT_NAME} PRIVATE winmm gdi32)
-
-  # Statically link the mingw runtime so the .exe doesn't need extra DLLs
-  target_link_options(${PROJECT_NAME} PRIVATE
-    -static-libgcc -static-libstdc++ -static
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+if(BUILD_TESTING)
+  file(GLOB_RECURSE RTYPE_TEST_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/tests/*.cpp"
   )
+
+  if(RTYPE_TEST_SOURCES)
+    add_executable(rtype_tests ${RTYPE_TEST_SOURCES})
+    target_link_libraries(rtype_tests PRIVATE rtype_core GTest::gtest_main)
+    rtype_configure_executable(rtype_tests)
+
+    gtest_discover_tests(rtype_tests)
+  endif()
 endif()
