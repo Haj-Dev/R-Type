@@ -5,6 +5,10 @@ on:
     branches:
       - main
       - dev
+    paths-ignore:
+      - docs/**
+      - .github/**
+      - README.md
 
 permissions:
   contents: write
