@@ -54,7 +54,8 @@ if(asio_ADDED)
   add_library(asio INTERFACE)
 
   # SYSTEM: keeps -Wpedantic -pedantic-errors from tripping on Asio's headers
-  target_include_directories(asio SYSTEM INTERFACE "${asio_SOURCE_DIR}/asio/include")
+  target_include_directories(asio SYSTEM INTERFACE
+                             "${asio_SOURCE_DIR}/asio/include")
 
   # Use standalone Asio (no Boost)
   target_compile_definitions(asio INTERFACE ASIO_STANDALONE)
