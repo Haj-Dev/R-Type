@@ -13,7 +13,7 @@ MagicNumberHeaderBody
 The magic number is a specific byte that will be implemented later.
 
 ### Header
-The header of the pseudo network RFC is a single byte that contains the following information:
+The header is a single byte that contains the following information:
 
 - 0x00: The header is a pseudo network RFC.
 - 0x01: The header is a pseudo network RFC.
@@ -25,7 +25,7 @@ The header of the pseudo network RFC is a single byte that contains the followin
 - ...
 
 ### Body
-The body of the pseudo network RFC depends on the header value. As such, the table below lists the expected body and body size depending on the header.
+The body depends on the header value. As such, the table below lists the expected body and body size depending on the header.
 
 | Header | Expected Body | Body Size |
 |--------|--------------|------------|
