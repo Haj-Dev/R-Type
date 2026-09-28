@@ -41,6 +41,7 @@ in
     # Wayland (optional backend - GLFW/raylib can build with -DGLFW_BUILD_WAYLAND=ON)
     wayland
     wayland-protocols
+    wayland-scanner
     libxkbcommon
 
     # --- Windows cross-compilation toolchain (mingw-w64) ---
