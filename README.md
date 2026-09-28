@@ -22,3 +22,21 @@ You can clean the build artifacts by running:
 ```bash
 clean-all
 ```
+
+## Technical stack
+
+### Around the project
+
+- markdown
+- github actions
+- github project
+- cmake
+- nix
+- devenv
+
+### Project stack
+
+- c++
+- raylib
+- asio
+- google test
