@@ -23,7 +23,7 @@ jobs:
 
       - name: Push mirror to other remote
         env:
-          MIRROR_URL: git@github.com:EpitechPGE3-2026/G-CCP-500-LIL-5-1-rtype-2.git
+          MIRROR_URL: git@github.com:EpitechPGE3-2026/G-ING-500-LIL-5-1-rtype-2.git
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
