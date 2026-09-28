@@ -100,6 +100,10 @@ in
     rm -rf build-linux build-windows
   '';
 
+  scripts.lint.exec = ''
+    run-clang-tidy -p . -fix '^((?!.devenv).)*$'
+  '';
+
   enterShell = ''
     # Patch this shell's env with nixGL's driver-related exports (LD_LIBRARY_PATH
     # etc.) so a plain `./build-linux/R-Type` finds a working OpenGL driver
