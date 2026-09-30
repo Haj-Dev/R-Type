@@ -1,9 +1,5 @@
 name: Pull request checks
 
-concurrency:
-  group: pr-checks-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 on:
   pull_request:
     branches:
