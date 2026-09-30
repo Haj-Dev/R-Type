@@ -37,7 +37,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: compile-commands
-          path: ./build-debug/compile_commands.json
+          path: ./compile_commands.json
 
   # ---------- Job 2: clang-tidy --fix, commit & push ----------
   lint:
