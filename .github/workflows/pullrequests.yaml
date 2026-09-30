@@ -19,16 +19,18 @@ jobs:
     name: Build
     runs-on: self-hosted
     container:
-      image: inkurey22/nix-devenv
+      image: inkurey22/epitest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          submodules: recursive
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
-        run: devenv shell -- build
+        run: ./build.sh
 
       # clang-tidy needs the compile database, and the next job runs in a fresh container
       - name: Upload compile_commands.json
@@ -43,7 +45,7 @@ jobs:
     needs: build
     runs-on: self-hosted
     container:
-      image: inkurey22/nix-devenv
+      image: inkurey22/epitest
 
     steps:
       - name: Checkout PR branch
@@ -52,7 +54,6 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.head_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          submodules: recursive
 
       - name: Download compile_commands.json
         uses: actions/download-artifact@v8
@@ -60,8 +61,7 @@ jobs:
           name: compile-commands
 
       - name: Run clang-tidy with fixes
-        run: |
-          devenv shell -- run-clang-tidy -p . -fix '^((?!thirdparty).)*$'
+        run: ./lint.sh
 
       - name: Commit and push lint fixes
         # Can't push to forks with GITHUB_TOKEN
@@ -83,24 +83,18 @@ jobs:
     needs: lint
     runs-on: self-hosted
     container:
-      image: inkurey22/nix-devenv
+      image: inkurey22/epitest
 
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v7
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.head_ref }} # picks up the lint commit, if any
+          ref: ${{ github.head_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Apply clang-format
-        run: |
-          devenv shell -- bash -c "
-            find . \( -path ./.git -o -path ./thirdparty \) -prune -o \
-              \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' \
-                 -o -name '*.hpp' -o -name '*.h' -o -name '*.hh' \) \
-              -print0 | xargs -0 -n1 clang-format -i
-          "
+        run: ./format.sh
 
       - name: Commit and push formatting changes
         if: github.event.pull_request.head.repo.full_name == github.repository
