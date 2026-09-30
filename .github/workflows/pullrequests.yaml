@@ -1,5 +1,9 @@
 name: Pull request checks
 
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     branches:
@@ -52,7 +56,7 @@ jobs:
   # ---------- Job 3: clang-format, commit & push ----------
   format:
     name: Format
-    needs: lint
+    needs: build-and-lint
     runs-on: self-hosted
     container:
       image: inkurey22/epitest
