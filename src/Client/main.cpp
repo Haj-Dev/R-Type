@@ -34,7 +34,7 @@ int                main() {
                 DrawText("CONNECTED", 10, 10, 20, GREEN);
                 char buf[80];
                 snprintf(buf, sizeof(buf), "Player #%d  %.0f, %.0f", client.playerId(), mouse.x,
-                                        mouse.y);
+                         mouse.y);
                 DrawText(buf, 10, 40, 16, DARKGRAY);
 
                 for (int i = 0; i < n; i++) {
