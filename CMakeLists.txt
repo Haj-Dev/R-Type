@@ -124,7 +124,7 @@ endfunction()
 file(GLOB_RECURSE RTYPE_CORE_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_SOURCE_DIR}/src/*.cpp"
 )
-list(FILTER RTYPE_CORE_SOURCES EXCLUDE REGEX "/src/main\\.cpp$")
+list(FILTER RTYPE_CORE_SOURCES EXCLUDE REGEX "[/\\\\]main\\.cpp$")
 
 if(RTYPE_CORE_SOURCES)
   add_library(rtype_core STATIC ${RTYPE_CORE_SOURCES})
@@ -141,11 +141,15 @@ target_include_directories(rtype_core ${_core_scope} "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(rtype_core ${_core_scope} raylib asio)
 
 # ---------------------------------------------------------------------------
-# Application target
+# Server & Client
 # ---------------------------------------------------------------------------
-add_executable(${PROJECT_NAME} src/main.cpp)
-target_link_libraries(${PROJECT_NAME} PRIVATE rtype_core)
-rtype_configure_executable(${PROJECT_NAME})
+add_executable(R-Type_server src/Server/main.cpp)
+target_link_libraries(R-Type_server PRIVATE rtype_core)
+rtype_configure_executable(R-Type_server)
+
+add_executable(R-Type_client src/Client/main.cpp)
+target_link_libraries(R-Type_client PRIVATE rtype_core)
+rtype_configure_executable(R-Type_client)
 
 # ---------------------------------------------------------------------------
 # Tests
