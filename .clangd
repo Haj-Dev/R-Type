@@ -1,0 +1,12 @@
+# clangd configuration.
+#
+# By default clangd only runs a hardcoded subset of the clang-tidy checks that
+# are enabled in .clang-tidy (its "fast" checks), so the editor reports far
+# fewer diagnostics than ./lint.sh does. Setting FastCheckFilter to None makes
+# clangd run the full check set, so the editor and lint.sh agree.
+#
+# Loose is a middle ground (runs everything except checks known to be slow) if
+# running every check on each keystroke feels too heavy.
+Diagnostics:
+  ClangTidy:
+    FastCheckFilter: Loose
