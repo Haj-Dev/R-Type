@@ -18,6 +18,7 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 CONFIG_FILE="$ROOT/.clang-tidy"
 
 SRC_DIR="${1:-$ROOT/src}"
+TEST_DIR="${1:-$ROOT/tests}"
 BUILD_DIR="${2:-$ROOT}"
 CLANG_TIDY="${CLANG_TIDY:-clang-tidy}"
 
@@ -36,6 +37,16 @@ if [[ ! -d "$SRC_DIR" ]]; then
     exit 1
 fi
 
+if [[ ! -d "$BUILD_DIR" ]]; then
+    echo "Error: build directory '$BUILD_DIR' does not exist." >&2
+    exit 1
+fi
+
+if [[ ! -d "$TEST_DIR" ]]; then
+    echo "Error: test directory '$TEST_DIR' does not exist." >&2
+    exit 1
+fi
+
 # Use the compilation database if available; otherwise fall back to
 # clang-tidy's default behaviour (looks for .clang-tidy / flags after --).
 TIDY_ARGS=(--fix --config-file="$CONFIG_FILE")
@@ -48,8 +59,9 @@ fi
 # Collect files (NUL-delimited to be safe with spaces in names).
 # Add header extensions (h, hpp, hh, hxx) to the list if you want them checked directly.
 mapfile -d '' FILES < <(
-    find "$SRC_DIR" -type f \
-        \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.cxx' \) \
+    find "$SRC_DIR" "$TEST_DIR" -type f \
+        \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.cxx' \
+           -o -name '*.h' -o -name '*.hpp' -o -name '*.hh' -o -name '*.hxx' \) \
         -print0
 )
 
@@ -58,7 +70,7 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
     exit 0
 fi
 
-echo "Running $CLANG_TIDY on ${#FILES[@]} file(s) in '$SRC_DIR'..."
+echo "Running $CLANG_TIDY on ${#FILES[@]} file(s) in '$SRC_DIR' and '$TEST_DIR'..."
 
 FAILED=0
 for file in "${FILES[@]}"; do
