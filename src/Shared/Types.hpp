@@ -131,11 +131,11 @@ namespace Net {
         const std::vector<std::uint8_t> bytes(data, data + size);
         const auto flags = static_cast<std::uint32_t>(bytes.at(HeaderSize + CommandHeaderSize));
         action           = SPlayerActionState{
-            .up    = (flags & 1U) != 0,
-            .down  = (flags & 2U) != 0,
-            .left  = (flags & 4U) != 0,
-            .right = (flags & 8U) != 0,
-            .fire  = (flags & 16U) != 0,
+                      .up    = (flags & 1U) != 0,
+                      .down  = (flags & 2U) != 0,
+                      .left  = (flags & 4U) != 0,
+                      .right = (flags & 8U) != 0,
+                      .fire  = (flags & 16U) != 0,
         };
         return true;
     }
