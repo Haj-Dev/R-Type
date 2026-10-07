@@ -164,6 +164,14 @@ namespace Ecs {
             }
         }
 
+        template <typename Fn>
+        void eachEntity(Fn fn) const {
+            for (std::uint32_t i = 0; i < generations_.size(); ++i) {
+                if (alive_.at(i) != 0)
+                    fn(SEntity{.index = i, .generation = generations_.at(i)});
+            }
+        }
+
         // Returns a lazy, non-allocating range over entities owning all Ts.
         template <typename... Ts>
         [[nodiscard]] CView<Ts...> view() {
