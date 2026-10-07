@@ -125,6 +125,7 @@ file(GLOB_RECURSE RTYPE_CORE_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_SOURCE_DIR}/src/*.cpp"
 )
 list(FILTER RTYPE_CORE_SOURCES EXCLUDE REGEX "[/\\\\]main\\.cpp$")
+list(FILTER RTYPE_CORE_SOURCES EXCLUDE REGEX "[/\\\\]old[/\\\\]")
 
 if(RTYPE_CORE_SOURCES)
   add_library(rtype_core STATIC ${RTYPE_CORE_SOURCES})
@@ -161,7 +162,8 @@ if(BUILD_TESTING)
 
   if(RTYPE_TEST_SOURCES)
     add_executable(rtype_tests ${RTYPE_TEST_SOURCES})
-    target_link_libraries(rtype_tests PRIVATE rtype_core GTest::gtest_main)
+    target_include_directories(rtype_tests PRIVATE "${CMAKE_SOURCE_DIR}/src")
+    target_link_libraries(rtype_tests PRIVATE GTest::gtest_main)
     rtype_configure_executable(rtype_tests)
 
     gtest_discover_tests(rtype_tests)

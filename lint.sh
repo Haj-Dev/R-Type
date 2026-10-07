@@ -49,7 +49,7 @@ fi
 
 # Use the compilation database if available; otherwise fall back to
 # clang-tidy's default behaviour (looks for .clang-tidy / flags after --).
-TIDY_ARGS=(--fix --config-file="$CONFIG_FILE")
+TIDY_ARGS=(--fix --fix-errors --config-file="$CONFIG_FILE")
 if [[ -f "$BUILD_DIR/compile_commands.json" ]]; then
     TIDY_ARGS+=(-p "$BUILD_DIR")
 else

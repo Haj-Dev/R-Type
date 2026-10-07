@@ -1,47 +1,37 @@
 #pragma once
 
-#include "Shared/Types.hpp"
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
 
-#include <asio.hpp>
-#include <vector>
+#include "Client/NetworkThread/NetworkThread.hpp"
+#include "Client/DrawThread/DrawThread.hpp"
+#include "Client/LogicThread/LogicThread.hpp"
+#include "Shared/SceneData.hpp"
+#include "Shared/PlayerActions.hpp"
 
-namespace Net {
+class CClient {
+  public:
+    CClient();
+    ~CClient();
 
-    class CClient {
-      public:
-        explicit CClient(asio::io_context& io);
+    CClient(const CClient&)                       = delete;
+    CClient& operator=(const CClient&)            = delete;
+    CClient(CClient&&)                            = delete;
+    CClient&                 operator=(CClient&&) = delete;
 
-        void connect(const char* host, uint16_t tcp_port = DefaultTcpPort,
-                     uint16_t udp_port = DefaultUdpPort);
-        void poll();
-        void sendState(float x, float y);
-        bool connected() const {
-            return connected_;
-        }
-        int32_t playerId() const {
-            return player_id_;
-        }
+    void                     start();
+    void                     stop();
 
-        // Parse last received UDP buffer. Returns player count.
-        int broadcast(float* ox, float* oy, int max);
+    [[nodiscard]] SSceneData sceneData() const;
 
-      private:
-        void                  doConnect(const char* host, asio::ip::tcp::resolver::results_type results);
-        void                  doSendHandshake();
-        void                  doReadHandshake();
-        void                  doReadUdp();
-
-        asio::io_context&     io_;
-        asio::ip::tcp::socket tcp_;
-        asio::ip::udp::socket udp_;
-        asio::ip::udp::endpoint server_ep_;
-        asio::ip::udp::endpoint udp_from_;
-        std::vector<uint8_t>    buf_;
-        std::vector<uint8_t>    recv_buf_;
-        std::vector<uint8_t>    send_buf_;
-
-        bool                    connected_ = false;
-        int32_t                 player_id_ = -1;
-    };
-
-} // namespace net
+  private:
+    mutable std::mutex      mtex;
+    std::condition_variable mStopCondition;
+    std::atomic_bool        mRunning = false;
+    SSceneData              mSceneData;
+    SPLayerActions          mPlayerActions;
+    CLogicThread            mLogicThread;
+    CDrawThread             mDrawThread;
+    CNetworkThread          mNetworkThread;
+};

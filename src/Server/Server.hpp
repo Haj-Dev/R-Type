@@ -1,50 +1,38 @@
 #pragma once
 
-#include "Shared/Types.hpp"
-
 #include <asio.hpp>
-#include <unordered_map>
-#include <memory>
+
+#include <atomic>
+#include <condition_variable>
 #include <mutex>
-#include <vector>
 
-namespace Net {
+#include "Server/NetworkThread/NetworkThread.hpp"
+#include "Server/LogicThread/LogicThread.hpp"
+#include "Shared/SceneData.hpp"
+#include "Shared/PlayerActions.hpp"
 
-    class CServer {
-      public:
-        explicit CServer(asio::io_context& io);
-        ~CServer();
+class CServer {
+  public:
+    explicit CServer(asio::io_context& io);
+    ~CServer();
 
-        void start(uint16_t tcp_port = DefaultTcpPort, uint16_t udp_port = DefaultUdpPort);
-        void poll();
-        void broadcast();
+    CServer(const CServer&)                       = delete;
+    CServer& operator=(const CServer&)            = delete;
+    CServer(CServer&&)                            = delete;
+    CServer&                 operator=(CServer&&) = delete;
 
-      private:
-        struct SClient {
-            asio::ip::tcp::socket   socket;
-            asio::ip::udp::endpoint remote;
-            int32_t                 playerId = -1;
-            STateUpdate             state{};
-            std::vector<uint8_t>    buf;
+    void                     start();
+    void                     stop();
 
-            explicit SClient(asio::io_context& io) : socket(io) {}
-        };
+    [[nodiscard]] SSceneData sceneData() const;
 
-        void                                     doAccept();
-        void                                     doReadClient(std::shared_ptr<SClient> ctx);
-        void                                     doWaitClient(std::shared_ptr<SClient> ctx);
-        void                                     removeClient(const std::shared_ptr<SClient>& ctx);
-        void                                     doReadUdp();
-
-        asio::io_context&                        io_;
-        std::unique_ptr<asio::ip::tcp::acceptor> acceptor_;
-        std::unique_ptr<asio::ip::udp::socket>   udp_;
-        std::mutex                               mtx_;
-        std::unordered_map<int32_t, std::shared_ptr<SClient>> clients_;
-        int                                                   next_id_ = 1;
-        std::vector<uint8_t>                                  buf_;
-        std::vector<uint8_t>                                  udp_buf_;
-        asio::ip::udp::endpoint                               udp_from_;
-    };
-
-} // namespace net
+  private:
+    asio::io_context&       mIo;
+    mutable std::mutex      mtex;
+    std::condition_variable mStopCondition;
+    std::atomic_bool        mRunning = false;
+    SSceneData              mSceneData;
+    SPLayerActions          mPlayerActions;
+    CServerLogicThread      mLogicThread;
+    CServerNetworkThread    mNetworkThread;
+};
