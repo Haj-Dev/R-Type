@@ -1,39 +1,42 @@
-# Pseudo network RFC
+# Network protocol
 
-## Introduction
+Connection initialization uses TCP; gameplay traffic uses UDP. Packets are
+binary and use the structure shown in `docs/network.png`.
 
-The pseudo network RFC is a document that outlines the requirements for a pseudo network, which is a network that is not physically connected to the internet. The pseudo network RFC is designed to provide a framework for the development of pseudo networks and to ensure that they meet certain criteria.
+TCP listens on port `7000`. The client binds its UDP socket first, then sends
+a 7-byte TCP hello containing the UDP port. The server replies with a 5-byte
+TCP welcome containing the assigned player ID. The TCP peer address and
+advertised UDP port identify the client's gameplay endpoint.
 
-## Format
+UDP listens on port `7001`. UDP packets use the following structure:
 
-MagicNumberHeaderBody
+```text
+magic (3 bytes) | packet type (1 byte) |
+  command type (1 byte) | entity ID (8 bytes) | command payload (...) |
+  ... repeated commands ...
+terminator (2 bytes: 0D 0A)
+```
 
-### Magic number
+The magic is the ASCII sequence `HAJ`. Multi-byte numeric values currently use
+the host's little-endian representation and are serialized explicitly by
+`src/Shared/Types.hpp`; C++ struct layout is never sent directly.
 
-The magic number is a specific byte that will be implemented later.
+## Packet types
 
-### Header
-The header is a single byte that contains the following information:
+| Value | Type | Direction | Purpose |
+|---:|---|---|---|
+| `2` | Input | client -> server | Send the latest player input state |
+| `3` | Snapshot | server -> client | Send the authoritative scene |
 
-- 0x00: The header is a pseudo network RFC.
-- 0x01: The header is a pseudo network RFC.
-- 0x02: The header is a pseudo network RFC.
-- 0x03: The header is a pseudo network RFC.
-- 0x04: The header is a pseudo network RFC.
-- 0x05: The header is a pseudo network RFC.
-- 0x06: The header is a pseudo network RFC.
-- ...
+## Commands
 
-### Body
-The body depends on the header value. As such, the table below lists the expected body and body size depending on the header.
+| Value | Command | Payload |
+|---:|---|---|
+| `2` | Input | one flags byte: up, down, left, right, fire |
+| `4` | Snapshot entity | entity kind (1), x (4), y (4), health (2) |
 
-| Header | Expected Body | Body Size |
-|--------|--------------|------------|
-| 0x00   | Pseudo network RFC | 1 byte    |
-| 0x01   | Pseudo network RFC | 1 byte    |
-| 0x02   | Pseudo network RFC | 1 byte    |
-| 0x03   | Pseudo network RFC | 1 byte    |
-| 0x04   | Pseudo network RFC | 1 byte    |
-| 0x05   | Pseudo network RFC | 1 byte    |
-| 0x06   | Pseudo network RFC | 1 byte    |
-| ...   | ...          | ...       |
+The entity ID field is always eight bytes, including for commands that do not
+refer to an entity. The TCP hello and welcome are separate fixed-size messages
+and do not use the UDP command layout. Receivers validate the magic, packet
+type, terminator, command type, and exact payload size before reading any
+field. Unknown or malformed datagrams are discarded.
