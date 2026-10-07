@@ -5,8 +5,8 @@
 #include <mutex>
 
 #include "Client/NetworkThread/NetworkThread.hpp"
-#include "Client/drawThread/DrawThread.hpp"
-#include "Client/logicThread/LogicThread.hpp"
+#include "Client/DrawThread/DrawThread.hpp"
+#include "Client/LogicThread/LogicThread.hpp"
 #include "Shared/SceneData.hpp"
 #include "Shared/PlayerActions.hpp"
 

@@ -7,7 +7,7 @@
 #include <mutex>
 
 #include "Server/NetworkThread/NetworkThread.hpp"
-#include "Server/logicThread/LogicThread.hpp"
+#include "Server/LogicThread/LogicThread.hpp"
 #include "Shared/SceneData.hpp"
 #include "Shared/PlayerActions.hpp"
 
