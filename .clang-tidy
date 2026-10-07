@@ -194,7 +194,7 @@ CheckOptions:
   performance-inefficient-string-concatenation.StrictMode: true
   readability-braces-around-statements.ShortStatementLines: 0
   readability-identifier-naming.ClassCase: CamelCase
-  readability-identifier-naming.ClassIgnoredRegexp: I.*
+  readability-identifier-naming.ClassIgnoredRegexp: I.*|A.*
   readability-identifier-naming.ClassPrefix: C # We can't use regex here?!?!?!?
   readability-identifier-naming.EnumCase: CamelCase
   readability-identifier-naming.EnumPrefix: e
