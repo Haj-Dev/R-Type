@@ -28,7 +28,13 @@ void CServerLogicThread::run() {
     constexpr auto tickInterval = std::chrono::milliseconds(16);
 
     while (mRunning.load()) {
-
+        {
+            std::scoped_lock lock(mtex);
+            mSimulation.applyActions(mPlayerActions);
+            mSimulation.tick(0.016F);
+            mSceneData.entities = mSimulation.snapshot();
+            ++mSceneData.tick;
+        }
         std::unique_lock lock(mtex);
         if (mStopCondition.wait_for(lock, tickInterval, [this] { return !mRunning.load(); })) {
             break;

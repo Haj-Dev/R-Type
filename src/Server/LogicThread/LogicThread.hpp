@@ -7,6 +7,7 @@
 
 #include "Shared/SceneData.hpp"
 #include "Shared/PlayerActions.hpp"
+#include "Shared/GameSimulation.hpp"
 
 class CServerLogicThread {
   public:
@@ -29,4 +30,5 @@ class CServerLogicThread {
     std::atomic_bool&        mRunning;
     std::condition_variable& mStopCondition;
     std::thread              mThread;
+    Game::CSimulation        mSimulation;
 };

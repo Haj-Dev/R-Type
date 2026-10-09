@@ -3,6 +3,8 @@
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
+#include <string>
+#include <asio.hpp>
 
 #include "Client/NetworkThread/NetworkThread.hpp"
 #include "Client/DrawThread/DrawThread.hpp"
@@ -12,21 +14,25 @@
 
 class CClient {
   public:
-    CClient();
+    explicit CClient(const std::string& serverAddress);
     ~CClient();
 
-    CClient(const CClient&)                       = delete;
-    CClient& operator=(const CClient&)            = delete;
-    CClient(CClient&&)                            = delete;
-    CClient&                 operator=(CClient&&) = delete;
+    CClient(const CClient&)                 = delete;
+    CClient& operator=(const CClient&)      = delete;
+    CClient(CClient&&)                      = delete;
+    CClient&           operator=(CClient&&) = delete;
 
-    void                     start();
-    void                     stop();
+    void               start();
+    void               stop();
+    [[nodiscard]] bool running() const {
+        return mRunning.load();
+    }
 
     [[nodiscard]] SSceneData sceneData() const;
 
   private:
     mutable std::mutex      mtex;
+    asio::io_context        mIo;
     std::condition_variable mStopCondition;
     std::atomic_bool        mRunning = false;
     SSceneData              mSceneData;

@@ -6,6 +6,26 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_TESTING "Build unit tests" ON)
+option(RTYPE_ENABLE_CCACHE
+       "Use ccache to accelerate compilation when available" ON)
+
+if(RTYPE_ENABLE_CCACHE)
+  find_program(CCACHE_PROGRAM ccache)
+  if(CCACHE_PROGRAM)
+    # Respect launchers supplied by the user or a toolchain file.
+    if(NOT DEFINED CMAKE_C_COMPILER_LAUNCHER)
+      set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}" CACHE STRING
+          "Compiler launcher for C targets")
+    endif()
+    if(NOT DEFINED CMAKE_CXX_COMPILER_LAUNCHER)
+      set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}" CACHE STRING
+          "Compiler launcher for C++ targets")
+    endif()
+    message(STATUS "Using ccache: ${CCACHE_PROGRAM}")
+  else()
+    message(STATUS "ccache not found; compiling without a compiler cache")
+  endif()
+endif()
 
 # ---------------------------------------------------------------------------
 # Dependencies via CPM

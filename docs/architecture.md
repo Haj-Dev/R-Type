@@ -3,20 +3,43 @@
 ## File architecture
 
 - `src/`
-  - `server/`
-  - `client/`
-  - `shared/`
-    - `Ecs/` — the shared Entity Component System
+  - `Server/` — authoritative simulation and networking
+  - `Client/` — input, networking, and rendering
+  - `Shared/`
+    - `Components/` — passive ECS component structs
+    - `ECS/` — entity handles, component pools, and the registry
+    - `Systems/` — shared gameplay systems
+    - `GameSimulation.hpp` — ECS world and system scheduler
+    - `GameWorld.hpp` — shared world constants and snapshot DTO
 
 ## Simulation
 
-Both server and client simulates the game.  
-The server gets priority over the client to avoid cheating.  
+The server owns the authoritative gameplay simulation. The client does not
+simulate authoritative outcomes; it sends input and renders server snapshots.
+
+The server advances the world at a fixed 60 Hz step. `Game::CSimulation` owns
+the ECS registry and schedules the systems; it does not contain gameplay logic
+itself:
+
+1. `CPlayerSystem` applies input, moves players, spawns players, and creates
+   projectiles.
+2. `CMovementSystem` integrates every entity with `SCPosition` and
+   `SCVelocity`.
+3. `CEnemySpawnSystem` periodically creates enemies.
+4. `CCollisionSystem` applies projectile damage and queues destruction.
+5. `CCleanupSystem` removes entities outside the world.
+6. `CSnapshotSystem` converts component state to the network snapshot DTO.
+
+The client projects each received snapshot into its own render registry. The
+`CRenderSystem` queries `SCPosition` and `SCDrawable` and performs the Raylib
+drawing.
 
 ## Entity Component System
 
 The shared ECS (`src/Shared/ECS/`, namespace `Ecs`) is the building block both
-the client and the server use to represent the game world. It is header-only.
+the server simulation and the client render world use. It is header-only. The
+network snapshot remains a transport DTO; incoming snapshots are immediately
+projected into client components before rendering.
 
 - `Ecs::SEntity` — a generational handle (`index` + `generation`). Recycling a
   slot bumps its generation, so a handle to a destroyed entity never aliases
@@ -30,15 +53,30 @@ the client and the server use to represent the game world. It is header-only.
 - `Ecs::CView<Ts...>` — a lazy, non-allocating range over the entities owning
   every requested component.
 
-Systems are plain functions that take a `CRegistry&` and iterate:
+All active game components derive from `AComponent` and live in
+`src/Shared/Components/`. Components use the `SC` prefix:
+`SCPosition`, `SCVelocity`, `SCHealth`, `SCCollider`, `SCEntityType`,
+`SCPlayer`, `SCProjectile`, and `SCDrawable`.
+
+`AComponent` is a common value/marker base, not a place for per-entity
+behavior. Components contain state only. Movement, collision, simulation,
+networking, and rendering remain systems that query component combinations.
+`SCDrawable` describes the visual representation; `CRenderSystem` performs the
+actual Raylib drawing.
+
+Systems are explicit classes that take a `CRegistry&` and iterate:
 
 ```cpp
-void movementSystem(Ecs::CRegistry& registry, float dt) {
-    registry.each<SPosition, SVelocity>([dt](Ecs::SEntity, SPosition& p, SVelocity& v) {
-        p.x += v.dx * dt;
-        p.y += v.dy * dt;
-    });
-}
+class CMovementSystem {
+  public:
+    void update(Ecs::CRegistry& registry, float dt) const {
+      registry.each<SCPosition, SCVelocity>(
+        [dt](Ecs::SEntity, SCPosition& p, const SCVelocity& v) {
+        p.x += v.x * dt;
+        p.y += v.y * dt;
+      });
+    }
+};
 ```
 
 Iteration is driven by the smallest matching pool, so its cost scales with the

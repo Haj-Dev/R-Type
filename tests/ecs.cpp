@@ -77,6 +77,14 @@ TEST(EcsEntity, DefaultHandleIsInvalid) {
     EXPECT_FALSE(e.valid());
 }
 
+TEST(EcsEntity, OutOfRangeAndStaleHandlesAreNotAlive) {
+    Ecs::CRegistry reg;
+    const auto      live = reg.create();
+
+    EXPECT_FALSE(reg.alive(Ecs::SEntity{.index = 99, .generation = 0}));
+    EXPECT_FALSE(reg.alive(Ecs::SEntity{.index = live.index, .generation = live.generation + 1}));
+}
+
 TEST(EcsEntity, HashDistinguishesGeneration) {
     const Ecs::SEntity            a{.index = 1, .generation = 0};
     const Ecs::SEntity            b{.index = 1, .generation = 1};
@@ -122,6 +130,24 @@ TEST(EcsComponent, RemoveComponent) {
 
     EXPECT_FALSE(reg.has<SPosition>(e));
     EXPECT_EQ(reg.get<SPosition>(e), nullptr);
+}
+
+TEST(EcsComponent, RemovingMissingComponentIsSafe) {
+    Ecs::CRegistry reg;
+    const auto     e = reg.create();
+
+    reg.remove<SPosition>(e);
+
+    EXPECT_FALSE(reg.has<SPosition>(e));
+}
+
+TEST(EcsComponent, MissingPoolReturnsNullFromMutableAndConstGet) {
+    Ecs::CRegistry reg;
+    const auto      e = reg.create();
+
+    EXPECT_EQ(reg.get<SName>(e), nullptr);
+    const auto& constReg = reg;
+    EXPECT_EQ(constReg.get<SName>(e), nullptr);
 }
 
 TEST(EcsComponent, DestroyRemovesAllComponents) {
@@ -264,6 +290,20 @@ TEST(EcsEachEntity, VisitsAllAlive) {
     EXPECT_EQ(visited.front(), b);
 }
 
+TEST(EcsEachEntity, ConstRegistryVisitsAliveEntities) {
+    Ecs::CRegistry reg;
+    const auto     a = reg.create();
+    const auto     b = reg.create();
+    reg.destroy(a);
+    const auto& constReg = reg;
+
+    std::size_t count = 0;
+    constReg.eachEntity([&](Ecs::SEntity) { ++count; });
+
+    EXPECT_EQ(count, 1U);
+    EXPECT_TRUE(constReg.alive(b));
+}
+
 // ── view() ───────────────────────────────────────────────────────────────────
 
 TEST(EcsView, IteratesMatchingEntities) {
@@ -293,6 +333,42 @@ TEST(EcsView, EmptyWhenNothingMatches) {
         ++count;
 
     EXPECT_EQ(count, 0);
+}
+
+TEST(EcsView, FiltersEntitiesUsingTheSmallestDriverPool) {
+    Ecs::CRegistry reg;
+    const auto     withBoth     = reg.create();
+    const auto     positionOnly = reg.create();
+    reg.emplace<SPosition>(withBoth);
+    reg.emplace<SPosition>(positionOnly);
+    reg.emplace<SVelocity>(withBoth);
+
+    std::vector<Ecs::SEntity> visited;
+    for (const auto entity : reg.view<SPosition, SVelocity>())
+        visited.push_back(entity);
+
+    ASSERT_EQ(visited.size(), 1U);
+    EXPECT_EQ(visited.front(), withBoth);
+}
+
+TEST(EcsView, SkipsNonMatchingEntitiesInTheDriverPool) {
+    Ecs::CRegistry reg;
+    const auto      matching = reg.create();
+    const auto      positionOnly = reg.create();
+    const auto      velocityOnly = reg.create();
+    const auto      anotherVelocityOnly = reg.create();
+    reg.emplace<SPosition>(matching);
+    reg.emplace<SPosition>(positionOnly);
+    reg.emplace<SVelocity>(matching);
+    reg.emplace<SVelocity>(velocityOnly);
+    reg.emplace<SVelocity>(anotherVelocityOnly);
+
+    std::vector<Ecs::SEntity> visited;
+    for (const auto entity : reg.view<SPosition, SVelocity>())
+        visited.push_back(entity);
+
+    ASSERT_EQ(visited.size(), 1U);
+    EXPECT_EQ(visited.front(), matching);
 }
 
 // ── Registry-wide ────────────────────────────────────────────────────────────

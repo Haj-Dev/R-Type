@@ -14,10 +14,10 @@
 //
 //   Ecs::CRegistry registry;
 //   Ecs::SEntity   player = registry.create();
-//   registry.emplace<SPosition>(player, SPosition{0.0F, 0.0F});
-//   registry.emplace<SVelocity>(player, SVelocity{1.0F, 0.0F});
+//   registry.emplace<SCPosition>(player, SCPosition{0.0F, 0.0F});
+//   registry.emplace<SCVelocity>(player, SCVelocity{1.0F, 0.0F});
 //
-//   registry.each<SPosition, SVelocity>([](Ecs::SEntity, SPosition& p, SVelocity& v) {
+//   registry.each<SCPosition, SCVelocity>([](Ecs::SEntity, SCPosition& p, SCVelocity& v) {
 //       p.x += v.dx;
 //       p.y += v.dy;
 //   });
