@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   # Runs only when this workflow executes on the base (source-of-truth) repo.
   # Pushes the current state to a mirror remote.
@@ -30,6 +33,44 @@ jobs:
           git remote add mirror "$MIRROR_URL"
           git push mirror --all --force
           git push mirror --tags --force
+
+  release:
+    if: github.repository == 'Haj-Dev/R-Type'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare commit release name
+        id: commit
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          title="$(printf '%s\n' "$COMMIT_MESSAGE" | sed -n '1p')"
+
+          if [[ ! "$title" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Commit name must be a semantic version such as v1.2.3; got: $title" >&2
+            exit 1
+          fi
+
+          {
+            echo "tag=$title"
+            echo "title<<EOF"
+            echo "$title"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - name: Create release and tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.commit.outputs.tag }}
+          TITLE: ${{ steps.commit.outputs.title }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; nothing to do."
+            exit 0
+          fi
+
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "$TITLE" \
+            --generate-notes
 
   # build-and-publish:
   #   if: github.repository != 'Haj-Dev/R-Type' && github.ref == 'refs/heads/main'

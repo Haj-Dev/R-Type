@@ -5,41 +5,25 @@ on:
     branches:
       - main
       - dev
+    paths-ignore:
+      - docs/**
+      - .github/**
+      - README.md
 
 permissions:
   contents: write
 
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
-  # ---------- Job 1: compile ----------
-  build:
-    name: Build
+  # ---------- Job 1: build, clang-tidy --fix, commit & push ----------
+  build-and-lint:
+    name: Build & Lint
     runs-on: self-hosted
     container:
-      image: inkurey22/nix-devenv
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - name: Build
-        run: devenv shell -- build-linux
-
-      # clang-tidy needs the compile database, and the next job runs in a fresh container
-      - name: Upload compile_commands.json
-        uses: actions/upload-artifact@v7
-        with:
-          name: compile-commands
-          path: compile_commands.json
-
-  # ---------- Job 2: clang-tidy --fix, commit & push ----------
-  lint:
-    name: Lint
-    needs: build
-    runs-on: self-hosted
-    container:
-      image: inkurey22/nix-devenv
+      image: inkurey22/epitest
 
     steps:
       - name: Checkout PR branch
@@ -50,19 +34,17 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           submodules: recursive
 
-      - name: Download compile_commands.json
-        uses: actions/download-artifact@v8
-        with:
-          name: compile-commands
+      - name: Build
+        run: ./build.sh
 
       - name: Run clang-tidy with fixes
-        run: |
-          devenv shell -- run-clang-tidy -p . -fix '^((?!thirdparty).)*$'
+        run: ./lint.sh
 
       - name: Commit and push lint fixes
         # Can't push to forks with GITHUB_TOKEN
         if: github.event.pull_request.head.repo.full_name == github.repository
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           if git diff --quiet; then
             echo "No lint changes"
             exit 0
@@ -73,13 +55,13 @@ jobs:
           git commit -m "ci: apply clang-tidy fixes"
           git push
 
-  # ---------- Job 3: clang-format, commit & push ----------
+  # ---------- Job 2: clang-format, commit & push ----------
   format:
     name: Format
-    needs: lint
+    needs: build-and-lint
     runs-on: self-hosted
     container:
-      image: inkurey22/nix-devenv
+      image: inkurey22/epitest
 
     steps:
       - name: Checkout PR branch
@@ -90,17 +72,12 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Apply clang-format
-        run: |
-          devenv shell -- bash -c "
-            find . \( -path ./.git -o -path ./thirdparty \) -prune -o \
-              \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' \
-                 -o -name '*.hpp' -o -name '*.h' -o -name '*.hh' \) \
-              -print0 | xargs -0 -n1 clang-format -i
-          "
+        run: ./format.sh
 
       - name: Commit and push formatting changes
         if: github.event.pull_request.head.repo.full_name == github.repository
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           if git diff --quiet; then
             echo "No formatting changes"
             exit 0
@@ -108,5 +85,5 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -u
-          git commit -m "ci: apply clang-format"
+          git commit -m "ci: apply clang-format [skip ci]"
           git push
