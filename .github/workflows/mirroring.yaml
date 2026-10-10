@@ -38,6 +38,11 @@ jobs:
     if: github.repository == 'Haj-Dev/R-Type'
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout commit
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
       - name: Prepare commit release name
         id: commit
         env:
