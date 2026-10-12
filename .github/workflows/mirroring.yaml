@@ -137,10 +137,12 @@ jobs:
       - name: Create source release
         env:
           GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
           TAG: ${{ needs.prepare.outputs.tag }}
           TITLE: ${{ needs.prepare.outputs.title }}
         run: |
           gh release create "$TAG" \
+            --repo "$REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "$TITLE" \
             --generate-notes \
