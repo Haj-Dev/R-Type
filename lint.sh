@@ -10,6 +10,10 @@
 # Fixes suggested by clang-tidy are applied in place (--fix).
 # Extra clang-tidy arguments can be passed via CLANG_TIDY_ARGS, e.g.:
 #   CLANG_TIDY_ARGS="--fix-errors" ./run-clang-tidy.sh
+#
+# Headers included by a source file are still checked according to
+# HeaderFilterRegex. Set LINT_HEADERS=1 to also invoke clang-tidy directly on
+# every header; this is slower and usually repeats dependency parsing.
 
 set -uo pipefail
 
@@ -18,7 +22,7 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 CONFIG_FILE="$ROOT/.clang-tidy"
 
 SRC_DIR="${1:-$ROOT/src}"
-TEST_DIR="${1:-$ROOT/tests}"
+TEST_DIR="$ROOT/tests"
 BUILD_DIR="${2:-$ROOT}"
 CLANG_TIDY="${CLANG_TIDY:-clang-tidy}"
 
@@ -47,21 +51,32 @@ if [[ ! -d "$TEST_DIR" ]]; then
     exit 1
 fi
 
-# Use the compilation database if available; otherwise fall back to
-# clang-tidy's default behaviour (looks for .clang-tidy / flags after --).
-TIDY_ARGS=(--fix --fix-errors --config-file="$CONFIG_FILE")
+HEADER_FILTER_REGEX="^${ROOT}/(src|tests)/.*"
+TIDY_ARGS=(
+    --fix
+    --fix-errors
+    --config-file="$CONFIG_FILE"
+    --header-filter="$HEADER_FILTER_REGEX"
+    --quiet
+)
 if [[ -f "$BUILD_DIR/compile_commands.json" ]]; then
     TIDY_ARGS+=(-p "$BUILD_DIR")
 else
     echo "Warning: $BUILD_DIR/compile_commands.json not found; running without a compilation database." >&2
 fi
 
-# Collect files (NUL-delimited to be safe with spaces in names).
-# Add header extensions (h, hpp, hh, hxx) to the list if you want them checked directly.
+FILE_FIND_ARGS=(
+    -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.cxx'
+)
+if [[ "${LINT_HEADERS:-0}" == "1" ]]; then
+    FILE_FIND_ARGS+=(
+        -o -name '*.h' -o -name '*.hpp' -o -name '*.hh' -o -name '*.hxx'
+    )
+fi
+
 mapfile -d '' FILES < <(
     find "$SRC_DIR" "$TEST_DIR" -type f \
-        \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.cxx' \
-           -o -name '*.h' -o -name '*.hpp' -o -name '*.hh' -o -name '*.hxx' \) \
+        \( "${FILE_FIND_ARGS[@]}" \) \
         -print0
 )
 

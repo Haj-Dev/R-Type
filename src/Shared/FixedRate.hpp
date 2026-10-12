@@ -25,8 +25,7 @@ namespace Timing {
             :
             mActive(timeBeginPeriod(1) == TIMERR_NOERROR)
 #endif
-        {
-        }
+            = default;
 
         ~CScopedTimerResolution() {
 #ifdef _WIN32
