@@ -93,6 +93,21 @@ if(asio_ADDED)
   endif()
 endif()
 
+# --- tomlplusplus -----------------------------------------------------------
+
+CPMAddPackage(
+  NAME tomlplusplus
+  GITHUB_REPOSITORY marzer/tomlplusplus
+  VERSION 3.4.0
+  GIT_SHALLOW TRUE
+)
+
+if(tomlplusplus_ADDED)
+  add_library(tomlplusplus INTERFACE)
+  target_include_directories(tomlplusplus SYSTEM INTERFACE
+                             "${tomlplusplus_SOURCE_DIR}/include")
+endif()
+
 # --- GoogleTest -------------------------------------------------------------
 
 if(BUILD_TESTING)
@@ -159,7 +174,7 @@ else()
 endif()
 
 target_include_directories(rtype_core ${_core_scope} "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(rtype_core ${_core_scope} raylib asio)
+target_link_libraries(rtype_core ${_core_scope} raylib asio tomlplusplus)
 
 # ---------------------------------------------------------------------------
 # Server & Client

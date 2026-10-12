@@ -1,8 +1,9 @@
-[[Level description]]
+[[Level_description]]
 background="/assets/background.png"
 timer=70
 music="/assets/music.ogg"
 player="/assests/player.png"
+nextLevel="/levels/level_2"
 
 [[enemies]]
 type="column"
