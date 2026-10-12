@@ -1,6 +1,5 @@
 #include "DrawThread.hpp"
 
-#include <chrono>
 #include <raylib.h>
 
 CDrawThread::CDrawThread(SSceneData& sceneData, SPLayerActions& playerActions, std::mutex& sceneMutex,
@@ -25,7 +24,6 @@ void CDrawThread::join() {
 }
 
 void CDrawThread::run() {
-    constexpr auto drawInterval = std::chrono::milliseconds(16);
     SetTraceLogLevel(LOG_WARNING);
     InitWindow(1280, 720, "R-Type");
     SetTargetFPS(60);
@@ -64,7 +62,6 @@ void CDrawThread::run() {
         }
         DrawText("Arrow keys: move   Space: fire", 20, 20, 20, RAYWHITE);
         EndDrawing();
-        std::this_thread::sleep_for(drawInterval);
     }
     CloseWindow();
 }

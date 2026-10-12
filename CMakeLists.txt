@@ -77,7 +77,7 @@ if(asio_ADDED)
 
   # SYSTEM: keeps -Wpedantic -pedantic-errors from tripping on Asio's headers
   target_include_directories(asio SYSTEM INTERFACE
-                             "${asio_SOURCE_DIR}/asio/include")
+                             "${asio_SOURCE_DIR}/include")
 
   # Use standalone Asio (no Boost)
   target_compile_definitions(asio INTERFACE ASIO_STANDALONE)
@@ -89,7 +89,14 @@ if(asio_ADDED)
     # Winsock, required by Asio on Windows
     target_link_libraries(asio INTERFACE ws2_32 mswsock)
     # Target Windows 10+ APIs (silences Asio's _WIN32_WINNT warning)
-    target_compile_definitions(asio INTERFACE _WIN32_WINNT=0x0A00)
+    # and keep windows.h from conflicting with raylib's public names.
+    target_compile_definitions(asio INTERFACE
+      _WIN32_WINNT=0x0A00
+      WIN32_LEAN_AND_MEAN
+      NOMINMAX
+      NOGDI
+      NOUSER
+    )
   endif()
 endif()
 
@@ -98,8 +105,9 @@ endif()
 if(BUILD_TESTING)
   enable_testing()
 
-  # Windows: use the shared CRT so gtest matches the app's runtime settings
-  set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+  if(CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC" OR MSVC)
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+  endif()
   set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 
   CPMAddPackage(
@@ -127,14 +135,20 @@ target_compile_options(rtype_warnings INTERFACE
 function(rtype_configure_executable target)
   target_link_libraries(${target} PRIVATE rtype_warnings)
 
-  if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    # Raylib/GLFW needs these system libs on Windows
+  if(WIN32)
+    # Raylib/GLFW needs these system libs on Windows.
     target_link_libraries(${target} PRIVATE winmm gdi32)
 
-    # Statically link the mingw runtime so the .exe doesn't need extra DLLs
-    target_link_options(${target} PRIVATE
-      -static-libgcc -static-libstdc++ -static
-    )
+    if(MINGW)
+      # Only MinGW has libgcc/libstdc++ runtimes to link statically. Clang
+      # targeting the Windows/MSVC ABI uses the Windows CRT instead.
+      target_link_options(${target} PRIVATE
+        -static-libgcc -static-libstdc++ -static
+      )
+    endif()
+  elseif(UNIX AND NOT APPLE)
+    # Linux: dependencies declare their own link requirements through CMake
+    # targets, so no Windows or MinGW runtime flags belong here.
   endif()
 endfunction()
 
