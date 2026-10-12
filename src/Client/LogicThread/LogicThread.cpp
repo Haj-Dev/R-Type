@@ -2,10 +2,9 @@
 
 #include <chrono>
 
-CLogicThread::CLogicThread(SSceneData& sceneData, SPLayerActions& playerActions, std::mutex& sceneMutex,
+CLogicThread::CLogicThread(SSceneData&, SPLayerActions&, std::mutex& sceneMutex,
                            std::atomic_bool& running, std::condition_variable& stopCondition) :
-    mSceneData(sceneData), mPlayerActions(playerActions), mtex(sceneMutex), mRunning(running),
-    mStopCondition(stopCondition) {}
+    mtex(sceneMutex), mRunning(running), mStopCondition(stopCondition) {}
 
 CLogicThread::~CLogicThread() {
     join();

@@ -35,7 +35,6 @@ class CNetworkThread {
     std::atomic_bool&        mRunning;
     std::condition_variable& mStopCondition;
     std::thread              mThread;
-    // asio::io_context&        mIo;
     asio::ip::udp::socket    mSocket;
     asio::ip::tcp::socket    mTcpSocket;
     asio::ip::udp::endpoint  mServerEndpoint;
