@@ -32,12 +32,12 @@ void CServerNetworkThread::join() {
 }
 
 void CServerNetworkThread::run() {
-    constexpr auto networkInterval = std::chrono::nanoseconds(1'000'000'000 / 120);
+    constexpr auto                       networkInterval = std::chrono::nanoseconds(1'000'000'000 / 120);
 
     const Timing::CScopedTimerResolution timerResolution;
     Timing::CFixedRate                   networkRate(networkInterval);
     std::array<std::uint8_t, 2048>       buffer{};
-    asio::ip::udp::endpoint        sender;
+    asio::ip::udp::endpoint              sender;
     mSocket.open(asio::ip::udp::v4());
     mSocket.bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), Net::DefaultUdpPort));
     mSocket.non_blocking(true);

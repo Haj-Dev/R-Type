@@ -27,8 +27,8 @@ void CServerLogicThread::join() {
 }
 
 void CServerLogicThread::run() {
-    constexpr auto  tickInterval = std::chrono::nanoseconds(1'000'000'000 / 60);
-    constexpr float tickDelta    = 1.0F / 60.0F;
+    constexpr auto                       tickInterval = std::chrono::nanoseconds(1'000'000'000 / 60);
+    constexpr float                      tickDelta    = 1.0F / 60.0F;
 
     const Timing::CScopedTimerResolution timerResolution;
     Timing::CFixedRate                   tickRate(tickInterval);
