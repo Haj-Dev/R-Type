@@ -1,5 +1,7 @@
 #include "LogicThread.hpp"
 
+#include "Shared/FixedRate.hpp"
+
 #include <chrono>
 
 CServerLogicThread::CServerLogicThread(SSceneData& sceneData, SPLayerActions& playerActions,
@@ -25,19 +27,23 @@ void CServerLogicThread::join() {
 }
 
 void CServerLogicThread::run() {
-    constexpr auto tickInterval = std::chrono::milliseconds(16);
+    constexpr auto  tickInterval = std::chrono::nanoseconds(1'000'000'000 / 60);
+    constexpr float tickDelta    = 1.0F / 60.0F;
+
+    const Timing::CScopedTimerResolution timerResolution;
+    Timing::CFixedRate                   tickRate(tickInterval);
 
     while (mRunning.load()) {
         {
             std::scoped_lock lock(mtex);
             mSimulation.applyActions(mPlayerActions);
-            mSimulation.tick(0.016F);
+            mSimulation.tick(tickDelta);
             mSceneData.entities = mSimulation.snapshot();
             ++mSceneData.tick;
         }
+
         std::unique_lock lock(mtex);
-        if (mStopCondition.wait_for(lock, tickInterval, [this] { return !mRunning.load(); })) {
+        if (!tickRate.wait(mStopCondition, lock, [this] { return !mRunning.load(); }))
             break;
-        }
     }
 }

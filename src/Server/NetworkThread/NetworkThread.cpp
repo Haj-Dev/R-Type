@@ -1,5 +1,6 @@
 #include "NetworkThread.hpp"
 
+#include "Shared/FixedRate.hpp"
 #include "Shared/Types.hpp"
 
 #include <algorithm>
@@ -31,8 +32,11 @@ void CServerNetworkThread::join() {
 }
 
 void CServerNetworkThread::run() {
-    constexpr auto                 networkInterval = std::chrono::milliseconds(8);
-    std::array<std::uint8_t, 2048> buffer{};
+    constexpr auto networkInterval = std::chrono::nanoseconds(1'000'000'000 / 120);
+
+    const Timing::CScopedTimerResolution timerResolution;
+    Timing::CFixedRate                   networkRate(networkInterval);
+    std::array<std::uint8_t, 2048>       buffer{};
     asio::ip::udp::endpoint        sender;
     mSocket.open(asio::ip::udp::v4());
     mSocket.bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), Net::DefaultUdpPort));
@@ -171,8 +175,7 @@ void CServerNetworkThread::run() {
         }
 
         std::unique_lock lock(mtex);
-        if (mStopCondition.wait_for(lock, networkInterval, [this] { return !mRunning.load(); })) {
+        if (!networkRate.wait(mStopCondition, lock, [this] { return !mRunning.load(); }))
             break;
-        }
     }
 }

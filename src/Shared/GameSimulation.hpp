@@ -11,17 +11,14 @@ namespace Game {
 
     class CSimulation {
       public:
-        CSimulation() {
-            initialActions_.connected.at(0) = true;
-            playerSystem_.ensureConnectedPlayers(registry_, initialActions_);
-        }
+        CSimulation() = default;
 
         void applyActions(const SPLayerActions& actions) {
             actions_ = actions;
         }
 
         void tick(float delta) {
-            playerSystem_.ensureConnectedPlayers(registry_, actions_);
+            playerSystem_.synchronizeConnectedPlayers(registry_, actions_);
             playerSystem_.update(registry_, actions_, delta);
             movementSystem_.update(registry_, delta);
             enemySpawnSystem_.update(registry_, delta);
@@ -35,7 +32,6 @@ namespace Game {
 
       private:
         Ecs::CRegistry    registry_;
-        SPLayerActions    initialActions_;
         SPLayerActions    actions_;
 
         CPlayerSystem     playerSystem_;
