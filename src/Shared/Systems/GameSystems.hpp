@@ -24,13 +24,17 @@ namespace Game {
         void update(Ecs::CRegistry& registry, const SPLayerActions& actions, float delta) const {
             std::vector<SPlayerSpawn> projectiles;
             registry.each<SCPosition, SCPlayer>(
-                [&](Ecs::SEntity, SCPosition& position, SCPlayer& player) {
+                [&](Ecs::SEntity entity, SCPosition& position, SCPlayer& player) {
+                    const auto* health = registry.get<SCHealth>(entity);
+                    if (health != nullptr && health->value <= 0)
+                        return;
+                    player.fireCooldown = std::max(0.0F, player.fireCooldown - delta);
+                    player.damageCooldown = std::max(0.0F, player.damageCooldown - delta);
                     const auto action = actions.forPlayer(player.id);
                     position.x = std::clamp(position.x + (action.horizontal() * PlayerSpeed * delta),
                                             20.0F, WorldWidth - 20.0F);
                     position.y = std::clamp(position.y + (action.vertical() * PlayerSpeed * delta),
                                             20.0F, WorldHeight - 20.0F);
-                    player.fireCooldown = std::max(0.0F, player.fireCooldown - delta);
                     if (action.fire && player.fireCooldown <= 0.0F) {
                         projectiles.push_back(SPlayerSpawn{.position = position, .playerId = player.id});
                         player.fireCooldown = FireInterval;
@@ -147,6 +151,29 @@ namespace Game {
                                     destroyed.push_back(enemy);
                             }
                         });
+                });
+
+            registry.each<SCPosition, SCCollider, SCEntityType, SCHealth, SCPlayer>(
+                [&](Ecs::SEntity playerEntity, SCPosition& playerPosition, SCCollider& playerCollider,
+                    SCEntityType& playerType, SCHealth& playerHealth, SCPlayer& player) {
+                    if (playerType.value != eEntityKind::PLAYER || playerHealth.value <= 0 ||
+                        player.damageCooldown > 0.0F)
+                        return;
+                    registry.each<SCPosition, SCCollider, SCEntityType, SCHealth>(
+                        [&](Ecs::SEntity enemyEntity, SCPosition& enemyPosition, SCCollider& enemyCollider,
+                            SCEntityType& enemyType, SCHealth&) {
+                            if (enemyType.value != eEntityKind::ENEMY || player.damageCooldown > 0.0F)
+                                return;
+                            const float dx = playerPosition.x - enemyPosition.x;
+                            const float dy = playerPosition.y - enemyPosition.y;
+                            const float radius = playerCollider.radius + enemyCollider.radius;
+                            if ((dx * dx) + (dy * dy) <= radius * radius) {
+                                playerHealth.value = static_cast<std::int16_t>(playerHealth.value - 1);
+                                player.damageCooldown = 1.0F;
+                                destroyed.push_back(enemyEntity);
+                            }
+                        });
+                    (void)playerEntity;
                 });
 
             std::unordered_set<Ecs::SEntity> uniqueDestroyed(destroyed.begin(), destroyed.end());

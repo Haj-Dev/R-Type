@@ -6,6 +6,7 @@
 #include "Shared/Components/Health.hpp"
 #include "Shared/Components/Position.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <raylib.h>
 
@@ -20,6 +21,21 @@ class CRenderSystem {
 
                 DrawCircleV(Vector2{.x = position.x, .y = position.y}, drawable.radius,
                             color(drawable.color));
+
+                if (drawable.color == static_cast<std::uint8_t>(Game::eEntityKind::PLAYER) &&
+                    health != nullptr) {
+                    constexpr float barWidth = 42.0F;
+                    constexpr float barHeight = 6.0F;
+                    constexpr float maxHealth = 3.0F;
+                    const float healthRatio = static_cast<float>(std::clamp<int>(health->value, 0, 3)) / maxHealth;
+                    const int barX = static_cast<int>(position.x - barWidth / 2.0F);
+                    const int barY = static_cast<int>(position.y - drawable.radius - 14.0F);
+                    DrawRectangle(barX, barY, static_cast<int>(barWidth), static_cast<int>(barHeight), DARKGRAY);
+                    DrawRectangle(barX, barY, static_cast<int>(barWidth * healthRatio),
+                                  static_cast<int>(barHeight), healthRatio > 0.5F ? GREEN : RED);
+                    DrawText(TextFormat("PV: %d/3", static_cast<int>(health->value)),
+                             barX - 2, barY - 17, 12, RAYWHITE);
+                }
             });
     }
 
