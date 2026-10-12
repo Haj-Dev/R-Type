@@ -11,7 +11,7 @@ CNetworkThread::CNetworkThread(asio::io_context& io, SSceneData& sceneData,
                                std::atomic_bool& running, std::condition_variable& stopCondition,
                                const std::string& serverAddress) :
     mSceneData(sceneData), mPlayerActions(playerActions), mtex(sceneMutex), mRunning(running),
-    mStopCondition(stopCondition), mIo(io), mSocket(io), mTcpSocket(io),
+    mStopCondition(stopCondition), mSocket(io), mTcpSocket(io),
     mServerEndpoint(asio::ip::make_address_v4(serverAddress), Net::DefaultUdpPort) {}
 
 CNetworkThread::~CNetworkThread() {

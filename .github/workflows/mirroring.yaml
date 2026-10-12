@@ -8,9 +8,97 @@ permissions:
   contents: write
 
 jobs:
-  # Runs only when this workflow executes on the base (source-of-truth) repo.
-  # Pushes the current state to a mirror remote.
+  prepare:
+    if: github.repository == 'Haj-Dev/R-Type'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.commit.outputs.tag }}
+      title: ${{ steps.commit.outputs.title }}
+    steps:
+      - name: Checkout commit
+        uses: actions/checkout@v7
+
+      - name: Prepare commit release name
+        id: commit
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          title="$(printf '%s\n' "$COMMIT_MESSAGE" | sed -n '1p')"
+
+          if [[ ! "$title" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Commit name must be a semantic version such as v1.2.3; got: $title" >&2
+            exit 1
+          fi
+
+          {
+            echo "tag=$title"
+            echo "title<<EOF"
+            echo "$title"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Push release tag
+        env:
+          TAG: ${{ steps.commit.outputs.tag }}
+        run: |
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists; nothing to do."
+          else
+            git tag "$TAG" "$GITHUB_SHA"
+            git push origin "$TAG"
+          fi
+
+  build-linux:
+    needs: prepare
+    runs-on: ubuntu-latest
+    container:
+      image: inkurey22/epitest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build Linux
+        run: ./build.sh
+
+      - name: Package Linux build
+        env:
+          VERSION: ${{ needs.prepare.outputs.tag }}
+        run: |
+          zip -r "rtype-linux-${VERSION}.zip" build
+
+      - name: Upload Linux build
+        uses: actions/upload-artifact@v7
+        with:
+          name: Linux-build
+          path: rtype-linux-*.zip
+          retention-days: 30
+
+  build-windows:
+    needs: prepare
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build Windows
+        shell: pwsh
+        run: ./build.ps1
+
+      - name: Package Windows build
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.prepare.outputs.tag }}
+        run: Compress-Archive -Path build\* -DestinationPath "rtype-windows-$env:VERSION.zip"
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v7
+        with:
+          name: Windows-build
+          path: rtype-windows-*.zip
+          retention-days: 30
+
   mirror:
+    needs: [prepare, build-linux, build-windows]
     if: github.repository == 'Haj-Dev/R-Type'
     runs-on: ubuntu-latest
     steps:
@@ -35,73 +123,41 @@ jobs:
           git push mirror --tags --force
 
   release:
+    needs: [prepare, build-linux, build-windows, mirror]
     if: github.repository == 'Haj-Dev/R-Type'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout commit
-        uses: actions/checkout@v7
+      - name: Download packaged build artifacts
+        uses: actions/download-artifact@v7
         with:
-          fetch-depth: 1
+          path: release-assets
+          pattern: "*-build"
+          merge-multiple: true
 
-      - name: Prepare commit release name
-        id: commit
-        env:
-          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
-        run: |
-          title="$(printf '%s\n' "$COMMIT_MESSAGE" | sed -n '1p')"
-
-          if [[ ! "$title" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Commit name must be a semantic version such as v1.2.3; got: $title" >&2
-            exit 1
-          fi
-
-          {
-            echo "tag=$title"
-            echo "title<<EOF"
-            echo "$title"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-      - name: Create release and tag
+      - name: Create source release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.commit.outputs.tag }}
-          TITLE: ${{ steps.commit.outputs.title }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          TITLE: ${{ needs.prepare.outputs.title }}
         run: |
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists; nothing to do."
-            exit 0
-          fi
-
           gh release create "$TAG" \
             --target "$GITHUB_SHA" \
             --title "$TITLE" \
-            --generate-notes
+            --generate-notes \
+            "release-assets/rtype-linux-$TAG.zip" \
+            "release-assets/rtype-windows-$TAG.zip"
 
-  # build-and-publish:
-  #   if: github.repository != 'Haj-Dev/R-Type' && github.ref == 'refs/heads/main'
-  #   runs-on: ubuntu-latest
-  #   container:
-  #     image: inkurey22/nix-devenv
-
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v7
-
-  #     - name: Build
-  #       run: |
-  #         build-linux
-  #         build-windows
-
-  #     - name: Publish Linux build artifact
-  #       uses: actions/upload-artifact@v7
-  #       with:
-  #         name: Linux-build
-  #         path: build-linux/
-  #         retention-days: 30
-
-  #     - name: Publish Windows build artifact
-  #       uses: actions/upload-artifact@v7
-  #       with:
-  #         name: Windows-build
-  #         path: build-windows/
-  #         retention-days: 30
+      - name: Create mirror release
+        env:
+          GH_TOKEN: ${{ secrets.MIRROR_GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          TITLE: ${{ needs.prepare.outputs.title }}
+          MIRROR_REPOSITORY: EpitechPGE3-2026/G-ING-500-LIL-5-1-rtype-2
+        run: |
+          gh release create "$TAG" \
+            --repo "$MIRROR_REPOSITORY" \
+            --target "$TAG" \
+            --title "$TITLE" \
+            --generate-notes \
+            "release-assets/rtype-linux-$TAG.zip" \
+            "release-assets/rtype-windows-$TAG.zip"

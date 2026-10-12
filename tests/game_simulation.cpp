@@ -5,8 +5,11 @@
 #include <algorithm>
 #include <vector>
 
-TEST(GameSimulation, StartsWithPlayerAndSpawnsEnemy) {
+TEST(GameSimulation, SpawnsConnectedPlayerAndEnemy) {
     Game::CSimulation simulation;
+    SPLayerActions actions;
+    actions.connected.at(0) = true;
+    simulation.applyActions(actions);
 
     simulation.tick(0.016F);
     const auto entities = simulation.snapshot();
@@ -24,6 +27,7 @@ TEST(GameSimulation, StartsWithPlayerAndSpawnsEnemy) {
 TEST(GameSimulation, PlayerInputMovesAndFires) {
     Game::CSimulation simulation;
     SPLayerActions actions;
+    actions.connected.at(0) = true;
     actions.states.at(0).right = true;
     actions.states.at(0).fire = true;
     simulation.applyActions(actions);
@@ -60,9 +64,33 @@ TEST(GameSimulation, ConnectedPlayersGetSeparateEntities) {
     EXPECT_NE(players.at(0).y, players.at(1).y);
 }
 
+TEST(GameSimulation, DisconnectedPlayerIsRemoved) {
+    Game::CSimulation simulation;
+    SPLayerActions actions;
+    actions.connected.at(0) = true;
+    actions.connected.at(1) = true;
+    simulation.applyActions(actions);
+    simulation.tick(0.016F);
+
+    actions.connected.at(0) = false;
+    simulation.applyActions(actions);
+    simulation.tick(0.016F);
+
+    const auto entities = simulation.snapshot();
+    std::vector<Game::SSnapshotEntity> players;
+    for (const auto& entity : entities) {
+        if (entity.kind == Game::eEntityKind::PLAYER)
+            players.push_back(entity);
+    }
+
+    ASSERT_EQ(players.size(), 1U);
+    EXPECT_FLOAT_EQ(players.front().y, 300.0F);
+}
+
 TEST(GameSimulation, PlayerMovementIsClampedToWorld) {
     Game::CSimulation simulation;
     SPLayerActions actions;
+    actions.connected.at(0) = true;
     actions.states.at(0).left = true;
     actions.states.at(0).up = true;
     simulation.applyActions(actions);
@@ -80,6 +108,7 @@ TEST(GameSimulation, PlayerMovementIsClampedToWorld) {
 TEST(GameSimulation, ProjectileCooldownPreventsRapidFire) {
     Game::CSimulation simulation;
     SPLayerActions actions;
+    actions.connected.at(0) = true;
     actions.states.at(0).fire = true;
     simulation.applyActions(actions);
 
@@ -96,11 +125,13 @@ TEST(GameSimulation, ProjectileCooldownPreventsRapidFire) {
 TEST(GameSimulation, ProjectilesAreCleanedUp) {
     Game::CSimulation simulation;
     SPLayerActions firing;
+    firing.connected.at(0) = true;
     firing.states.at(0).fire = true;
     simulation.applyActions(firing);
     simulation.tick(0.016F);
 
     SPLayerActions idle;
+    idle.connected.at(0) = true;
     simulation.applyActions(idle);
     for (int i = 0; i < 240; ++i)
         simulation.tick(0.016F);
@@ -114,12 +145,14 @@ TEST(GameSimulation, ProjectilesAreCleanedUp) {
 TEST(GameSimulation, ProjectileCanDestroyEnemy) {
     Game::CSimulation simulation;
     SPLayerActions moveUp;
+    moveUp.connected.at(0) = true;
     moveUp.states.at(0).up = true;
     simulation.applyActions(moveUp);
     for (int i = 0; i < 20; ++i)
         simulation.tick(0.016F);
 
     SPLayerActions firing;
+    firing.connected.at(0) = true;
     firing.states.at(0).fire = true;
     simulation.applyActions(firing);
     for (int i = 0; i < 140; ++i)
