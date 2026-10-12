@@ -23,8 +23,8 @@ class CLogicThread {
   private:
     void                     run();
 
-    SSceneData&              mSceneData;
-    SPLayerActions&          mPlayerActions;
+    // SSceneData&              mSceneData;
+    // SPLayerActions&          mPlayerActions;
     std::mutex&              mtex;
     std::atomic_bool&        mRunning;
     std::condition_variable& mStopCondition;
