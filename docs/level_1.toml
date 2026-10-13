@@ -8,6 +8,9 @@ nextLevel="/levels/level_2"
 [[enemies]]
 type="column"
 start=10
+startY=1200
+gapY=100
+size=50
 direction="up"
 damage=10
 score=10

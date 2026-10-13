@@ -13,6 +13,14 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <iostream>
+#include <optional>
+#include <sstream>
+#include <stdexcept>
+#include <toml++/impl/array.hpp>
+#include <toml++/impl/forward_declarations.hpp>
+#include <toml++/impl/parser.hpp>
+#include <toml++/impl/table.hpp>
 #include <unordered_set>
 #include <vector>
 
@@ -91,23 +99,99 @@ namespace Game {
         }
     };
 
+    class CEnemySpawn {
+      public:
+        CEnemySpawn(const toml::table &tbl) {
+            std::optional<float> optStart = tbl.at_path("start").value<float>();
+            std::optional<uint> optCount = tbl.at_path("count").value<uint>();
+
+            if (!optStart.has_value() || !optCount.has_value())
+                throw std::runtime_error((std::ostringstream("Error: Failed to read value in ennemy: \n") << tbl).str());
+            nextSpawnTime = optStart.value();
+            count = optCount.value();
+            type = tbl.at_path("type").value_or("linear");
+            spawnSpeed = tbl.at_path("spawnSpeed").value_or(1);
+            speed = tbl.at_path("speed").value_or(1);
+            health = tbl.at_path("health").value_or(1);
+            damage = tbl.at_path("damage").value_or(1);
+            startY = tbl.at_path("startY").value_or(0);
+            size = tbl.at_path("size").value_or(16);
+            if (type == "column") {
+                gapY = tbl.at_path("gapY").value_or(0);
+                direction = std::string(tbl.at_path("direction").value_or("down")) == "up";
+            }
+        }
+
+        void enemySpawned() {
+            spawned++;
+            nextSpawnTime += spawnSpeed;
+        }
+
+        bool toDelete() const noexcept {return spawned >= count;}
+
+        [[nodiscard]] uint getSpawned() const noexcept {return spawned;}
+        [[nodiscard]] uint getCount() const noexcept {return count;}
+        [[nodiscard]] float getSpeed() const noexcept {return speed;}
+        [[nodiscard]] int16_t getHealth() const noexcept {return health;}
+        [[nodiscard]] int16_t getDamage() const noexcept {return damage;}
+        [[nodiscard]] float getStartY() const noexcept {return startY;}
+        [[nodiscard]] float getGapY() const noexcept {return gapY;}
+        [[nodiscard]] std::string getType() const noexcept {return type;}
+        [[nodiscard]] bool getDirection() const noexcept {return direction;}
+        [[nodiscard]] float getNextSpawnTime() const noexcept {return nextSpawnTime;}
+        [[nodiscard]] float getSize() const noexcept {return size;}
+
+      private:
+        uint spawned = 0;
+        uint count;
+        float spawnSpeed = 1;
+        float speed = 1;
+        uint size = 16;
+        int16_t health = 1;
+        int16_t damage = 1;
+        uint startY = 0;
+        uint gapY = 0;
+        std::string type = "linear"; // linear || column
+        bool direction = false; // up = true; down = false
+        float nextSpawnTime;
+    };
+
     class CEnemySpawnSystem {
       public:
-        void update(Ecs::CRegistry& registry, float delta) {
-            timer_ -= delta;
-            if (timer_ > 0.0F)
+        CEnemySpawnSystem(const std::string &filepath) {
+            toml::parse_result result = toml::parse_file(filepath);
+            if (!result) {
+                std::cerr << "Error parsing file: " << result.error() << std::endl;
                 return;
+            }
+            toml::table tbl = std::move(result);
+            toml::array *array = tbl.at_path("enemies").as_array();
+            if (array == nullptr)
+                return;
+            enemySpawns.clear();
+            for (toml::node &tableEntry: *array)
+                enemySpawns.emplace_back(*tableEntry.as_table());
+        }
 
-            const auto entity = registry.create();
-            registry.emplace<SCPosition>(entity, SCPosition{WorldWidth + 20.0F, 100.0F});
-            registry.emplace<SCVelocity>(entity, SCVelocity{-90.0F, 0.0F});
-            registry.emplace<SCHealth>(entity, SCHealth{1});
-            registry.emplace<SCCollider>(entity, SCCollider{16.0F});
-            registry.emplace<SCEntityType>(entity, SCEntityType{eEntityKind::ENEMY});
-            timer_ += 2.0F;
+        void update(Ecs::CRegistry& registry, float delta) {
+            timer_ += delta;
+
+            for (CEnemySpawn &enemySpawn: enemySpawns) {
+                if (enemySpawn.getNextSpawnTime() > timer_)
+                    continue;
+                const auto entity = registry.create();
+                registry.emplace<SCPosition>(entity, SCPosition{WorldWidth + 20.0F, enemySpawn.getStartY() + (enemySpawn.getGapY() * enemySpawn.getSpawned())});
+                registry.emplace<SCVelocity>(entity, SCVelocity{-(enemySpawn.getSpeed()), 0.0F});
+                registry.emplace<SCHealth>(entity, SCHealth{enemySpawn.getHealth()});
+                registry.emplace<SCCollider>(entity, SCCollider{enemySpawn.getSize()});
+                registry.emplace<SCEntityType>(entity, SCEntityType{eEntityKind::ENEMY});
+                enemySpawn.enemySpawned();
+            }
+            std::erase_if(enemySpawns, [](CEnemySpawn &enemySpawn) {return enemySpawn.toDelete();});
         }
 
       private:
+        std::vector<CEnemySpawn> enemySpawns;
         float timer_ = 0.0F;
     };
 
