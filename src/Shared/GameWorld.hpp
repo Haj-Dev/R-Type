@@ -14,15 +14,15 @@ namespace Game {
     inline constexpr float FireInterval    = 0.2F;
 
     struct SSnapshotEntity {
-        std::uint32_t id     = 0;
-        eEntityKind   kind   = eEntityKind::ENEMY;
-        float         x      = 0.0F;
-        float         y      = 0.0F;
-        std::int16_t  health = 0;
-        int           layer = 0;
-        float         scale = 1.0F;
-        float         offsetX = 0.0F;
-        float         offsetY = 0.0F;
+        std::uint32_t id       = 0;
+        eEntityKind   kind     = eEntityKind::ENEMY;
+        float         x        = 0.0F;
+        float         y        = 0.0F;
+        std::int16_t  health   = 0;
+        int           layer    = 0;
+        float         scale    = 1.0F;
+        float         offsetX  = 0.0F;
+        float         offsetY  = 0.0F;
         float         rotation = 0.0F;
         std::string   texture;
     };

@@ -15,5 +15,5 @@ struct SCDrawableShape : AComponent {
     eDrawableShape shape  = eDrawableShape::CIRCLE;
     float          radius = 8.0F;
     std::uint8_t   color  = 0;
-    int            layer = 0;
+    int            layer  = 0;
 };

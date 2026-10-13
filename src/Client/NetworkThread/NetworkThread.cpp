@@ -87,12 +87,12 @@ void CNetworkThread::run() {
                     Game::SSnapshotEntity entity;
                     std::uint64_t         entityId = 0;
                     std::memcpy(&entityId, buffer.data() + offset + 1, sizeof(entityId));
-                    entity.id = static_cast<std::uint32_t>(entityId);
-                    const auto payload = offset + Net::CommandHeaderSize;
-                    constexpr std::size_t fixedPayloadSize =
-                        sizeof(entity.kind) + sizeof(entity.x) + sizeof(entity.y) +
-                        sizeof(entity.health) + sizeof(entity.layer) + sizeof(entity.scale) +
-                        sizeof(entity.offsetX) + sizeof(entity.offsetY) + sizeof(entity.rotation);
+                    entity.id                              = static_cast<std::uint32_t>(entityId);
+                    const auto            payload          = offset + Net::CommandHeaderSize;
+                    constexpr std::size_t fixedPayloadSize = sizeof(entity.kind) + sizeof(entity.x) +
+                        sizeof(entity.y) + sizeof(entity.health) + sizeof(entity.layer) +
+                        sizeof(entity.scale) + sizeof(entity.offsetX) + sizeof(entity.offsetY) +
+                        sizeof(entity.rotation);
                     if (payload + fixedPayloadSize >= size - sizeof(Net::Terminator))
                         break;
                     std::memcpy(&entity.kind, buffer.data() + payload, sizeof(entity.kind));

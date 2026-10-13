@@ -54,12 +54,11 @@ struct SSceneData {
                                     entity.kind == Game::eEntityKind::PLAYER ? 18.0F : 8.0F,
                                     static_cast<std::uint8_t>(entity.kind), entity.layer});
             } else {
-                renderRegistry.emplace<SCDrawableSprite>(
-                    renderEntity,
-                    SCDrawableSprite{entity.texture, entity.layer});
-                auto* sprite = renderRegistry.get<SCDrawableSprite>(renderEntity);
-                sprite->scale = entity.scale;
-                sprite->offset = SCPosition{entity.offsetX, entity.offsetY};
+                renderRegistry.emplace<SCDrawableSprite>(renderEntity,
+                                                         SCDrawableSprite{entity.texture, entity.layer});
+                auto* sprite     = renderRegistry.get<SCDrawableSprite>(renderEntity);
+                sprite->scale    = entity.scale;
+                sprite->offset   = SCPosition{entity.offsetX, entity.offsetY};
                 sprite->rotation = entity.rotation;
             }
             if (entity.kind == Game::eEntityKind::PLAYER || entity.kind == Game::eEntityKind::ENEMY) {

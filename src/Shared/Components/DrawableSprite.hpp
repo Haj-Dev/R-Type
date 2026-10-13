@@ -12,8 +12,8 @@ struct SCDrawableSprite : AComponent {
         texture(std::move(drawableTexture)), layer(drawableLayer) {}
 
     std::string texture;
-    int         layer   = 0;
-    float       scale   = 1.0F;
+    int         layer = 0;
+    float       scale = 1.0F;
     SCPosition  offset{};
     float       rotation = 0.0F;
 };
