@@ -27,6 +27,7 @@ void CDrawThread::run() {
     SetTraceLogLevel(LOG_WARNING);
     InitWindow(1280, 720, "R-Type");
     SetTargetFPS(60);
+    mRenderSystem.loadTextures(mSceneData.renderRegistry);
 
     while (mRunning.load()) {
         if (WindowShouldClose()) {
@@ -58,6 +59,7 @@ void CDrawThread::run() {
             for (int x = 0; x < 1280; x += 80)
                 DrawCircle((x + static_cast<int>(mSceneData.tick * 2)) % 1280, 80 + ((x * 37) % 600), 2,
                            RAYWHITE);
+            mRenderSystem.loadTextures(mSceneData.renderRegistry);
             mRenderSystem.draw(mSceneData.renderRegistry);
         }
         DrawText("Arrow keys: move   Space: fire", 20, 20, 20, RAYWHITE);

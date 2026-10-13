@@ -1,7 +1,8 @@
 #pragma once
 
 #include "Shared/ECS/ECS.hpp"
-#include "Shared/Components/Drawable.hpp"
+#include "Shared/Components/DrawableShape.hpp"
+#include "Shared/Components/DrawableSprite.hpp"
 #include "Shared/Components/EntityType.hpp"
 #include "Shared/Components/Health.hpp"
 #include "Shared/Components/Position.hpp"
@@ -46,11 +47,21 @@ struct SSceneData {
             const auto renderEntity = renderRegistry.create();
             renderRegistry.emplace<SCPosition>(renderEntity, SCPosition{entity.x, entity.y});
             renderRegistry.emplace<SCEntityType>(renderEntity, SCEntityType{entity.kind});
-            renderRegistry.emplace<SCDrawable>(
-                renderEntity,
-                SCDrawable{eDrawableShape::CIRCLE,
-                           entity.kind == Game::eEntityKind::PLAYER ? 18.0F : 8.0F,
-                           static_cast<std::uint8_t>(entity.kind)});
+            if (entity.texture.empty()) {
+                renderRegistry.emplace<SCDrawableShape>(
+                    renderEntity,
+                    SCDrawableShape{eDrawableShape::CIRCLE,
+                                    entity.kind == Game::eEntityKind::PLAYER ? 18.0F : 8.0F,
+                                    static_cast<std::uint8_t>(entity.kind), entity.layer});
+            } else {
+                renderRegistry.emplace<SCDrawableSprite>(
+                    renderEntity,
+                    SCDrawableSprite{entity.texture, entity.layer});
+                auto* sprite = renderRegistry.get<SCDrawableSprite>(renderEntity);
+                sprite->scale = entity.scale;
+                sprite->offset = SCPosition{entity.offsetX, entity.offsetY};
+                sprite->rotation = entity.rotation;
+            }
             if (entity.kind == Game::eEntityKind::PLAYER || entity.kind == Game::eEntityKind::ENEMY) {
                 renderRegistry.emplace<SCHealth>(renderEntity, SCHealth{entity.health});
             }

@@ -8,6 +8,8 @@
 #include "Shared/Components/Position.hpp"
 #include "Shared/Components/Projectile.hpp"
 #include "Shared/Components/Velocity.hpp"
+#include "Shared/Components/DrawableShape.hpp"
+#include "Shared/Components/DrawableSprite.hpp"
 #include "Shared/GameWorld.hpp"
 #include "Shared/PlayerActions.hpp"
 
@@ -15,6 +17,7 @@
 #include <array>
 #include <cstdint>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace Game {
@@ -76,6 +79,9 @@ namespace Game {
             registry.emplace<SCHealth>(entity, SCHealth{3});
             registry.emplace<SCCollider>(entity, SCCollider{18.0F});
             registry.emplace<SCEntityType>(entity, SCEntityType{eEntityKind::PLAYER});
+            registry.emplace<SCDrawableSprite>(entity, SCDrawableSprite{"assets/player.png"});
+            auto* sprite   = registry.get<SCDrawableSprite>(entity);
+            sprite->offset = SCPosition{0.0F, 0.0F};
             registry.emplace<SCPlayer>(entity, SCPlayer{id});
         }
 
@@ -177,14 +183,31 @@ namespace Game {
             result.reserve(registry.size());
             registry.each<SCPosition, SCEntityType>(
                 [&](Ecs::SEntity entity, SCPosition& position, SCEntityType& type) {
-                    const auto* health = registry.get<SCHealth>(entity);
-                    result.push_back(SSnapshotEntity{
-                        .id     = entity.index,
-                        .kind   = type.value,
-                        .x      = position.x,
-                        .y      = position.y,
-                        .health = static_cast<std::int16_t>(health == nullptr ? 0 : health->value),
-                    });
+                    const auto*     health = registry.get<SCHealth>(entity);
+                    SSnapshotEntity snapshot{
+                        .id       = entity.index,
+                        .kind     = type.value,
+                        .x        = position.x,
+                        .y        = position.y,
+                        .health   = static_cast<std::int16_t>(health == nullptr ? 0 : health->value),
+                        .layer    = 0,
+                        .scale    = 1.0F,
+                        .offsetX  = 0.0F,
+                        .offsetY  = 0.0F,
+                        .rotation = 0.0F,
+                        .texture  = {},
+                    };
+                    if (const auto* shape = registry.get<SCDrawableShape>(entity))
+                        snapshot.layer = shape->layer;
+                    if (const auto* sprite = registry.get<SCDrawableSprite>(entity)) {
+                        snapshot.layer    = sprite->layer;
+                        snapshot.scale    = sprite->scale;
+                        snapshot.offsetX  = sprite->offset.x;
+                        snapshot.offsetY  = sprite->offset.y;
+                        snapshot.rotation = sprite->rotation;
+                        snapshot.texture  = sprite->texture;
+                    }
+                    result.push_back(std::move(snapshot));
                 });
             return result;
         }

@@ -160,11 +160,18 @@ namespace Net {
     inline std::vector<std::uint8_t> makeSnapshot(const SSceneData& scene) {
         auto packet = beginPacket(ePacketType::SNAPSHOT);
         for (const auto& entity : scene.entities) {
-            std::array<std::uint8_t, 11> payload{};
-            std::memcpy(payload.data(), &entity.kind, sizeof(entity.kind));
-            std::memcpy(payload.data() + 1, &entity.x, sizeof(entity.x));
-            std::memcpy(payload.data() + 5, &entity.y, sizeof(entity.y));
-            std::memcpy(payload.data() + 9, &entity.health, sizeof(entity.health));
+            std::vector<std::uint8_t> payload;
+            append(payload, entity.kind);
+            append(payload, entity.x);
+            append(payload, entity.y);
+            append(payload, entity.health);
+            append(payload, entity.layer);
+            append(payload, entity.scale);
+            append(payload, entity.offsetX);
+            append(payload, entity.offsetY);
+            append(payload, entity.rotation);
+            payload.insert(payload.end(), entity.texture.begin(), entity.texture.end());
+            payload.push_back('\n');
             appendCommand(packet, eCommandType::SNAPSHOT_ENTITY, entity.id, payload.data(),
                           payload.size());
         }

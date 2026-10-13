@@ -3,6 +3,7 @@
 #include "Shared/Components/EntityType.hpp"
 
 #include <cstdint>
+#include <string>
 
 namespace Game {
 
@@ -18,6 +19,12 @@ namespace Game {
         float         x      = 0.0F;
         float         y      = 0.0F;
         std::int16_t  health = 0;
+        int           layer = 0;
+        float         scale = 1.0F;
+        float         offsetX = 0.0F;
+        float         offsetY = 0.0F;
+        float         rotation = 0.0F;
+        std::string   texture;
     };
 
 } // namespace Game

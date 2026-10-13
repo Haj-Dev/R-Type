@@ -11,7 +11,7 @@ namespace {
 
     static_assert(std::is_base_of_v<AComponent, SCPosition>);
     static_assert(std::is_base_of_v<AComponent, SCVelocity>);
-    static_assert(std::is_base_of_v<AComponent, SCDrawable>);
+    static_assert(std::is_base_of_v<AComponent, SCDrawableShape>);
 
     template <typename T>
     T readBytes(const std::vector<std::uint8_t>& packet, std::size_t offset) {
@@ -124,7 +124,7 @@ TEST(NetworkProtocol, PacketValidationChecksExpectedTypeAndTerminator) {
     EXPECT_FALSE(Net::validPacket(wrongFirstTerminator.data(), wrongFirstTerminator.size(),
                                   Net::ePacketType::HELLO));
 
-    auto wrongSecondTerminator = hello;
+    auto wrongSecondTerminator                                 = hello;
     wrongSecondTerminator.at(wrongSecondTerminator.size() - 1) = 0;
     EXPECT_FALSE(Net::validPacket(wrongSecondTerminator.data(), wrongSecondTerminator.size(),
                                   Net::ePacketType::HELLO));
@@ -200,7 +200,7 @@ TEST(SceneData, SnapshotProjectionBuildsComponentRegistry) {
             EXPECT_EQ(type.value, Game::eEntityKind::ENEMY);
             EXPECT_EQ(health.value, 2);
         });
-    EXPECT_EQ(scene.renderRegistry.pool<SCDrawable>().size(), 1U);
+    EXPECT_EQ(scene.renderRegistry.pool<SCDrawableShape>().size(), 1U);
 }
 
 TEST(SceneData, SnapshotProjectionKeepsProjectileWithoutHealthComponent) {
@@ -215,7 +215,8 @@ TEST(SceneData, SnapshotProjectionKeepsProjectileWithoutHealthComponent) {
     });
 
     ASSERT_EQ(scene.renderRegistry.size(), 1U);
-    ASSERT_TRUE(scene.renderRegistry.has<SCDrawable>(*scene.renderRegistry.view<SCPosition>().begin()));
+    ASSERT_TRUE(
+        scene.renderRegistry.has<SCDrawableShape>(*scene.renderRegistry.view<SCPosition>().begin()));
     scene.renderRegistry.each<SCPosition, SCEntityType>(
         [&](Ecs::SEntity entity, SCPosition& position, SCEntityType& type) {
             EXPECT_FLOAT_EQ(position.x, 42.0F);
