@@ -18,6 +18,7 @@
 #include <random>
 #include <sstream>
 #include <stdexcept>
+#include "raylib.h"
 #include <toml++/toml.hpp>
 #include <toml++/impl/array.hpp>
 #include <toml++/impl/forward_declarations.hpp>
@@ -205,9 +206,9 @@ namespace Game {
                 if (enemySpawn.getType() == "random") {
                     std::random_device              rd;
                     std::mt19937                    gen(rd());
-                    std::uniform_int_distribution<> dis(0, 1000);
+                    std::uniform_int_distribution<> dis(0, Game::WorldHeight - (enemySpawn.getSize() * 2));
                     registry.emplace<SCPosition>(
-                        entity, SCPosition{WorldWidth + 20.0F, static_cast<float>(dis(gen))});
+                        entity, SCPosition{WorldWidth + 20.0F, static_cast<float>(dis(gen) + enemySpawn.getSize())});
                 } else {
                     registry.emplace<SCPosition>(
                         entity,
