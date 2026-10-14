@@ -20,7 +20,7 @@ score=10
 health=10
 count=10
 spawnSpeed=1
-speed=10
+speed=90
 texture="/assests/enemy.png"
 deathSound="/assets/enemy_death.ogg"
 
@@ -32,7 +32,8 @@ damage=10
 score=10
 health=10
 spawnSpeed=2
-speed=5
+speed=70
+startY=500
 texture="/assests/enemy.png"
 deathSound="/assests/enemy_death.ogg"
 
@@ -44,7 +45,8 @@ damage=10
 score=10
 health=10
 spawnSpeed=3
-speed=10
+speed=80
+startY=1000
 texture="/assests/enemy.png"
 deathSound="/assets/enemy_death.ogg"
 

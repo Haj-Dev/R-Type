@@ -15,11 +15,7 @@
 #include <array>
 #include <cstdint>
 #include <iostream>
-#include <optional>
 #include <random>
-#include <sstream>
-#include <stdexcept>
-#include "raylib.h"
 #include <toml++/toml.hpp>
 #include <toml++/impl/array.hpp>
 #include <toml++/impl/forward_declarations.hpp>
