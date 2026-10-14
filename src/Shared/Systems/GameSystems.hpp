@@ -91,8 +91,7 @@ namespace Game {
             registry.emplace<SCDrawableSpriteAtlas>(
                 entity,
                 SCDrawableSpriteAtlas{"assets/player_atlas.png",
-                                      Rectangle{.x = 0.0F, .y = 0.0F, .width = 32.0F, .height = 32.0F},
-                                      4, 0.5F, id % 2U});
+                                      SDimentions{.width = 32U, .height = 32U}, 4, 0.5F, id % 2U});
             registry.emplace<SCPlayer>(entity, SCPlayer{id});
         }
 

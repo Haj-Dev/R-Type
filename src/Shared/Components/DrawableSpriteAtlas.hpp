@@ -1,17 +1,16 @@
 #pragma once
 
 #include "DrawableSprite.hpp"
+#include "Shared/Dimentions.hpp"
 
 #include <cstddef>
 #include <cmath>
 #include <algorithm>
 #include <utility>
 
-#include <raylib.h>
-
 struct SCDrawableSpriteAtlas : SCDrawableSprite {
     SCDrawableSpriteAtlas() = default;
-    explicit SCDrawableSpriteAtlas(std::string drawableTexture, Rectangle drawableBaseDimension,
+    explicit SCDrawableSpriteAtlas(std::string drawableTexture, SDimentions drawableBaseDimension,
                                    std::size_t drawableFrames = 1U, float drawableFrameDuration = 0.0F,
                                    std::size_t drawableVariant = 0U, int drawableLayer = 0,
                                    float drawableScale = 1.0F, SCPosition drawableOffset = {},
@@ -21,7 +20,7 @@ struct SCDrawableSpriteAtlas : SCDrawableSprite {
         baseDimension(drawableBaseDimension), frames(drawableFrames),
         frameDuration(drawableFrameDuration), variant(drawableVariant) {}
 
-    Rectangle   baseDimension{};
+    SDimentions baseDimension{};
     std::size_t frames        = 1U;
     float       frameDuration = 0.0F;
     std::size_t variant       = 0U;

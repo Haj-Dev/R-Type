@@ -77,8 +77,8 @@ namespace Game {
                         source           = Rectangle{
                             .x      = atlas->baseDimension.width * static_cast<float>(frame),
                             .y      = atlas->baseDimension.height * static_cast<float>(atlas->variant),
-                            .width  = atlas->baseDimension.width,
-                            .height = atlas->baseDimension.height,
+                            .width  = static_cast<float>(atlas->baseDimension.width),
+                            .height = static_cast<float>(atlas->baseDimension.height),
                         };
                     }
                     const Rectangle destination{

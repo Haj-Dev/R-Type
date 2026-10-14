@@ -158,7 +158,7 @@ TEST(NetworkProtocol, WelcomePacketRejectsMalformedCommandAndSize) {
 }
 
 TEST(NetworkProtocol, SnapshotEncodesEntityFields) {
-    SSceneData scene;
+    SSceneData            scene;
     Game::SSnapshotEntity entity{
         .id     = 42,
         .kind   = Game::eEntityKind::PLAYER,
@@ -166,11 +166,11 @@ TEST(NetworkProtocol, SnapshotEncodesEntityFields) {
         .y      = 456.25F,
         .health = 3,
     };
-    entity.atlas = true;
-    entity.baseDimension = Rectangle{.x = 0.0F, .y = 0.0F, .width = 32.0F, .height = 24.0F};
-    entity.frames = 6U;
+    entity.atlas         = true;
+    entity.baseDimension = SDimentions{.width = 32U, .height = 24U};
+    entity.frames        = 6U;
     entity.frameDuration = 0.12F;
-    entity.variant = 2U;
+    entity.variant       = 2U;
     scene.entities.push_back(entity);
 
     const auto            packet        = Net::makeSnapshot(scene);
@@ -185,8 +185,8 @@ TEST(NetworkProtocol, SnapshotEncodesEntityFields) {
     EXPECT_FLOAT_EQ(readBytes<float>(packet, payloadOffset + 5), 456.25F);
     EXPECT_EQ(readBytes<std::int16_t>(packet, payloadOffset + 9), 3);
     EXPECT_TRUE(packet.at(payloadOffset + 31));
-    EXPECT_FLOAT_EQ(readBytes<float>(packet, payloadOffset + 32), 32.0F);
-    EXPECT_FLOAT_EQ(readBytes<float>(packet, payloadOffset + 36), 24.0F);
+    EXPECT_EQ(readBytes<std::uint32_t>(packet, payloadOffset + 32), 32U);
+    EXPECT_EQ(readBytes<std::uint32_t>(packet, payloadOffset + 36), 24U);
     EXPECT_EQ(readBytes<std::uint64_t>(packet, payloadOffset + 40), 6U);
     EXPECT_FLOAT_EQ(readBytes<float>(packet, payloadOffset + 48), 0.12F);
     EXPECT_EQ(readBytes<std::uint64_t>(packet, payloadOffset + 52), 2U);
