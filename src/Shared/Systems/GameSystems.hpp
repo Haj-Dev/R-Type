@@ -183,8 +183,8 @@ namespace Game {
         int16_t     damage;
         uint        startY;
         uint        gapY;
-        std::string type; // linear || column || random
-        bool        direction;    // up = true; down = false
+        std::string type;      // linear || column || random
+        bool        direction; // up = true; down = false
         float       nextSpawnTime;
     };
 
@@ -216,9 +216,12 @@ namespace Game {
                 if (enemySpawn.getType() == "random") {
                     std::random_device              rd;
                     std::mt19937                    gen(rd());
-                    std::uniform_int_distribution<> dis(0, Game::WorldHeight - (enemySpawn.getSize() * 2));
+                    std::uniform_int_distribution<> dis(0,
+                                                        Game::WorldHeight - (enemySpawn.getSize() * 2));
                     registry.emplace<SCPosition>(
-                        entity, SCPosition{WorldWidth + 20.0F, static_cast<float>(dis(gen) + enemySpawn.getSize())});
+                        entity,
+                        SCPosition{WorldWidth + 20.0F,
+                                   static_cast<float>(dis(gen) + enemySpawn.getSize())});
                 } else {
                     registry.emplace<SCPosition>(
                         entity,
