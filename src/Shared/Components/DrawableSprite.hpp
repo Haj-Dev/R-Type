@@ -8,8 +8,11 @@
 
 struct SCDrawableSprite : AComponent {
     SCDrawableSprite() = default;
-    explicit SCDrawableSprite(std::string drawableTexture, int drawableLayer = 0) :
-        texture(std::move(drawableTexture)), layer(drawableLayer) {}
+    explicit SCDrawableSprite(std::string drawableTexture, int drawableLayer = 0,
+                              float drawableScale = 1.0F, SCPosition drawableOffset = {},
+                              float drawableRotation = 0.0F) :
+        texture(std::move(drawableTexture)), layer(drawableLayer), scale(drawableScale),
+        offset(std::move(drawableOffset)), rotation(drawableRotation) {}
 
     std::string texture;
     int         layer = 0;

@@ -80,8 +80,6 @@ namespace Game {
             registry.emplace<SCCollider>(entity, SCCollider{18.0F});
             registry.emplace<SCEntityType>(entity, SCEntityType{eEntityKind::PLAYER});
             registry.emplace<SCDrawableSprite>(entity, SCDrawableSprite{"assets/player.png"});
-            auto* sprite   = registry.get<SCDrawableSprite>(entity);
-            sprite->offset = SCPosition{0.0F, 0.0F};
             registry.emplace<SCPlayer>(entity, SCPlayer{id});
         }
 
