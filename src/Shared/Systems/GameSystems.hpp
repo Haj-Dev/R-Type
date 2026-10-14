@@ -10,6 +10,7 @@
 #include "Shared/Components/Velocity.hpp"
 #include "Shared/Components/DrawableShape.hpp"
 #include "Shared/Components/DrawableSprite.hpp"
+#include "Shared/Components/DrawableSpriteAtlas.hpp"
 #include "Shared/GameWorld.hpp"
 #include "Shared/PlayerActions.hpp"
 
@@ -21,6 +22,14 @@
 #include <vector>
 
 namespace Game {
+
+    class CAnimationSystem {
+      public:
+        void update(Ecs::CRegistry& registry, float delta) const {
+            registry.each<SCDrawableSpriteAtlas>(
+                [delta](Ecs::SEntity, SCDrawableSpriteAtlas& sprite) { sprite.advance(delta); });
+        }
+    };
 
     class CPlayerSystem {
       public:
@@ -79,7 +88,11 @@ namespace Game {
             registry.emplace<SCHealth>(entity, SCHealth{3});
             registry.emplace<SCCollider>(entity, SCCollider{18.0F});
             registry.emplace<SCEntityType>(entity, SCEntityType{eEntityKind::PLAYER});
-            registry.emplace<SCDrawableSprite>(entity, SCDrawableSprite{"assets/player.png"});
+            registry.emplace<SCDrawableSpriteAtlas>(
+                entity,
+                SCDrawableSpriteAtlas{"assets/player_atlas.png",
+                                      Rectangle{.x = 0.0F, .y = 0.0F, .width = 32.0F, .height = 32.0F},
+                                      4, 0.5F, id % 2U});
             registry.emplace<SCPlayer>(entity, SCPlayer{id});
         }
 
@@ -204,6 +217,19 @@ namespace Game {
                         snapshot.offsetY  = sprite->offset.y;
                         snapshot.rotation = sprite->rotation;
                         snapshot.texture  = sprite->texture;
+                    }
+                    if (const auto* atlas = registry.get<SCDrawableSpriteAtlas>(entity)) {
+                        snapshot.atlas         = true;
+                        snapshot.baseDimension = atlas->baseDimension;
+                        snapshot.frames        = atlas->frames;
+                        snapshot.frameDuration = atlas->frameDuration;
+                        snapshot.variant       = atlas->variant;
+                        snapshot.layer         = atlas->layer;
+                        snapshot.scale         = atlas->scale;
+                        snapshot.offsetX       = atlas->offset.x;
+                        snapshot.offsetY       = atlas->offset.y;
+                        snapshot.rotation      = atlas->rotation;
+                        snapshot.texture       = atlas->texture;
                     }
                     result.push_back(std::move(snapshot));
                 });

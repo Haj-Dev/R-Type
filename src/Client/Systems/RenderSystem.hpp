@@ -2,4 +2,4 @@
 
 #include "Shared/Systems/RenderingSystem.hpp"
 
-using CRenderSystem = CRenderingSystem;
+using CRenderSystem = Game::CRenderingSystem;

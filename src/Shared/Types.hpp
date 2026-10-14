@@ -131,11 +131,11 @@ namespace Net {
         const std::vector<std::uint8_t> bytes(data, data + size);
         const auto flags = static_cast<std::uint32_t>(bytes.at(HeaderSize + CommandHeaderSize));
         action           = SPlayerActionState{
-                      .up    = (flags & 1U) != 0,
-                      .down  = (flags & 2U) != 0,
-                      .left  = (flags & 4U) != 0,
-                      .right = (flags & 8U) != 0,
-                      .fire  = (flags & 16U) != 0,
+            .up    = (flags & 1U) != 0,
+            .down  = (flags & 2U) != 0,
+            .left  = (flags & 4U) != 0,
+            .right = (flags & 8U) != 0,
+            .fire  = (flags & 16U) != 0,
         };
         return true;
     }
@@ -170,6 +170,12 @@ namespace Net {
             append(payload, entity.offsetX);
             append(payload, entity.offsetY);
             append(payload, entity.rotation);
+            append(payload, entity.atlas);
+            append(payload, entity.baseDimension.width);
+            append(payload, entity.baseDimension.height);
+            append(payload, static_cast<std::uint64_t>(entity.frames));
+            append(payload, entity.frameDuration);
+            append(payload, static_cast<std::uint64_t>(entity.variant));
             payload.insert(payload.end(), entity.texture.begin(), entity.texture.end());
             payload.push_back('\n');
             appendCommand(packet, eCommandType::SNAPSHOT_ENTITY, entity.id, payload.data(),

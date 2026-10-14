@@ -92,7 +92,9 @@ void CNetworkThread::run() {
                     constexpr std::size_t fixedPayloadSize = sizeof(entity.kind) + sizeof(entity.x) +
                         sizeof(entity.y) + sizeof(entity.health) + sizeof(entity.layer) +
                         sizeof(entity.scale) + sizeof(entity.offsetX) + sizeof(entity.offsetY) +
-                        sizeof(entity.rotation);
+                        sizeof(entity.rotation) + sizeof(entity.atlas) +
+                        sizeof(entity.baseDimension.width) + sizeof(entity.baseDimension.height) +
+                        sizeof(std::uint64_t) + sizeof(entity.frameDuration) + sizeof(std::uint64_t);
                     if (payload + fixedPayloadSize >= size - sizeof(Net::Terminator))
                         break;
                     std::memcpy(&entity.kind, buffer.data() + payload, sizeof(entity.kind));
@@ -110,6 +112,25 @@ void CNetworkThread::run() {
                     cursor += sizeof(entity.offsetY);
                     std::memcpy(&entity.rotation, buffer.data() + cursor, sizeof(entity.rotation));
                     cursor += sizeof(entity.rotation);
+                    std::memcpy(&entity.atlas, buffer.data() + cursor, sizeof(entity.atlas));
+                    cursor += sizeof(entity.atlas);
+                    std::memcpy(&entity.baseDimension.width, buffer.data() + cursor,
+                                sizeof(entity.baseDimension.width));
+                    cursor += sizeof(entity.baseDimension.width);
+                    std::memcpy(&entity.baseDimension.height, buffer.data() + cursor,
+                                sizeof(entity.baseDimension.height));
+                    cursor += sizeof(entity.baseDimension.height);
+                    std::uint64_t wireFrames = 0;
+                    std::memcpy(&wireFrames, buffer.data() + cursor, sizeof(wireFrames));
+                    entity.frames = static_cast<std::size_t>(wireFrames);
+                    cursor += sizeof(wireFrames);
+                    std::memcpy(&entity.frameDuration, buffer.data() + cursor,
+                                sizeof(entity.frameDuration));
+                    cursor += sizeof(entity.frameDuration);
+                    std::uint64_t wireVariant = 0;
+                    std::memcpy(&wireVariant, buffer.data() + cursor, sizeof(wireVariant));
+                    entity.variant = static_cast<std::size_t>(wireVariant);
+                    cursor += sizeof(wireVariant);
                     const auto* end = std::find(buffer.data() + cursor,
                                                 buffer.data() + size - sizeof(Net::Terminator), '\n');
                     if (end == buffer.data() + size - sizeof(Net::Terminator))

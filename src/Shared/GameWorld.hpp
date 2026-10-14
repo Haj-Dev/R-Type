@@ -3,7 +3,10 @@
 #include "Shared/Components/EntityType.hpp"
 
 #include <cstdint>
+#include <cstddef>
 #include <string>
+
+#include <raylib.h>
 
 namespace Game {
 
@@ -25,6 +28,11 @@ namespace Game {
         float         offsetY  = 0.0F;
         float         rotation = 0.0F;
         std::string   texture;
+        bool          atlas = false;
+        Rectangle     baseDimension{};
+        std::size_t   frames        = 1U;
+        float         frameDuration = 0.0F;
+        std::size_t   variant       = 0U;
     };
 
 } // namespace Game
