@@ -29,7 +29,7 @@ class CRenderSystem {
                                   DARKGRAY);
                     DrawRectangle(barX, barY, static_cast<int>(barWidth * healthRatio),
                                   static_cast<int>(barHeight), healthRatio > 0.5F ? GREEN : RED);
-                    DrawText(TextFormat("PV: %d/3", static_cast<int>(health.value)), barX - 2, barY - 17,
+                    DrawText(TextFormat("HP: %d/3", static_cast<int>(health.value)), barX - 2, barY - 17,
                              12, RAYWHITE);
                 }
             });
