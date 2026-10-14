@@ -8,6 +8,9 @@
 #include "Shared/Components/Position.hpp"
 #include "Shared/Components/Projectile.hpp"
 #include "Shared/Components/Velocity.hpp"
+#include "Shared/Components/DrawableShape.hpp"
+#include "Shared/Components/DrawableSprite.hpp"
+#include "Shared/Components/DrawableSpriteAtlas.hpp"
 #include "Shared/GameWorld.hpp"
 #include "Shared/PlayerActions.hpp"
 
@@ -22,9 +25,18 @@
 #include <toml++/impl/parser.hpp>
 #include <toml++/impl/table.hpp>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace Game {
+
+    class CAnimationSystem {
+      public:
+        void update(Ecs::CRegistry& registry, float delta) const {
+            registry.each<SCDrawableSpriteAtlas>(
+                [delta](Ecs::SEntity, SCDrawableSpriteAtlas& sprite) { sprite.advance(delta); });
+        }
+    };
 
     class CPlayerSystem {
       public:
@@ -83,6 +95,10 @@ namespace Game {
             registry.emplace<SCHealth>(entity, SCHealth{3});
             registry.emplace<SCCollider>(entity, SCCollider{18.0F});
             registry.emplace<SCEntityType>(entity, SCEntityType{eEntityKind::PLAYER});
+            registry.emplace<SCDrawableSpriteAtlas>(
+                entity,
+                SCDrawableSpriteAtlas{"assets/player_atlas.png",
+                                      SDimentions{.width = 32U, .height = 32U}, 4, 0.5F, id % 2U});
             registry.emplace<SCPlayer>(entity, SCPlayer{id});
         }
 
@@ -295,14 +311,44 @@ namespace Game {
             result.reserve(registry.size());
             registry.each<SCPosition, SCEntityType>(
                 [&](Ecs::SEntity entity, SCPosition& position, SCEntityType& type) {
-                    const auto* health = registry.get<SCHealth>(entity);
-                    result.push_back(SSnapshotEntity{
-                        .id     = entity.index,
-                        .kind   = type.value,
-                        .x      = position.x,
-                        .y      = position.y,
-                        .health = static_cast<std::int16_t>(health == nullptr ? 0 : health->value),
-                    });
+                    const auto*     health = registry.get<SCHealth>(entity);
+                    SSnapshotEntity snapshot{
+                        .id       = entity.index,
+                        .kind     = type.value,
+                        .x        = position.x,
+                        .y        = position.y,
+                        .health   = static_cast<std::int16_t>(health == nullptr ? 0 : health->value),
+                        .layer    = 0,
+                        .scale    = 1.0F,
+                        .offsetX  = 0.0F,
+                        .offsetY  = 0.0F,
+                        .rotation = 0.0F,
+                        .texture  = {},
+                    };
+                    if (const auto* shape = registry.get<SCDrawableShape>(entity))
+                        snapshot.layer = shape->layer;
+                    if (const auto* sprite = registry.get<SCDrawableSprite>(entity)) {
+                        snapshot.layer    = sprite->layer;
+                        snapshot.scale    = sprite->scale;
+                        snapshot.offsetX  = sprite->offset.x;
+                        snapshot.offsetY  = sprite->offset.y;
+                        snapshot.rotation = sprite->rotation;
+                        snapshot.texture  = sprite->texture;
+                    }
+                    if (const auto* atlas = registry.get<SCDrawableSpriteAtlas>(entity)) {
+                        snapshot.atlas         = true;
+                        snapshot.baseDimension = atlas->baseDimension;
+                        snapshot.frames        = atlas->frames;
+                        snapshot.frameDuration = atlas->frameDuration;
+                        snapshot.variant       = atlas->variant;
+                        snapshot.layer         = atlas->layer;
+                        snapshot.scale         = atlas->scale;
+                        snapshot.offsetX       = atlas->offset.x;
+                        snapshot.offsetY       = atlas->offset.y;
+                        snapshot.rotation      = atlas->rotation;
+                        snapshot.texture       = atlas->texture;
+                    }
+                    result.push_back(std::move(snapshot));
                 });
             return result;
         }

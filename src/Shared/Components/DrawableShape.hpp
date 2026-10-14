@@ -6,10 +6,10 @@ enum class eDrawableShape : std::uint8_t {
     CIRCLE,
 };
 
-struct SCDrawable : AComponent {
-    SCDrawable() = default;
-    SCDrawable(eDrawableShape drawableShape, float drawableRadius, std::uint8_t drawableColor,
-               int drawableLayer = 0) :
+struct SCDrawableShape : AComponent {
+    SCDrawableShape() = default;
+    SCDrawableShape(eDrawableShape drawableShape, float drawableRadius, std::uint8_t drawableColor,
+                    int drawableLayer = 0) :
         shape(drawableShape), radius(drawableRadius), color(drawableColor), layer(drawableLayer) {}
 
     eDrawableShape shape  = eDrawableShape::CIRCLE;
