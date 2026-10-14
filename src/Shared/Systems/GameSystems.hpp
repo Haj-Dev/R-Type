@@ -135,10 +135,10 @@ namespace Game {
             return spawned >= count && (type != "random" || count != 1);
         }
 
-        [[nodiscard]] uint getSpawned() const noexcept {
+        [[nodiscard]] std::uint32_t getSpawned() const noexcept {
             return spawned;
         }
-        [[nodiscard]] uint getCount() const noexcept {
+        [[nodiscard]] std::uint32_t getCount() const noexcept {
             return count;
         }
         [[nodiscard]] float getSpeed() const noexcept {
@@ -170,18 +170,18 @@ namespace Game {
         }
 
       private:
-        uint        spawned = 0;
-        uint        count;
-        float       spawnSpeed;
-        float       speed;
-        uint        size;
-        int16_t     health;
-        int16_t     damage;
-        uint        startY;
-        uint        gapY;
-        std::string type;      // linear || column || random
-        bool        direction; // up = true; down = false
-        float       nextSpawnTime;
+        std::uint32_t spawned = 0;
+        std::uint32_t count;
+        float         spawnSpeed;
+        float         speed;
+        std::uint32_t size;
+        int16_t       health;
+        int16_t       damage;
+        std::uint32_t startY;
+        std::uint32_t gapY;
+        std::string   type;      // linear || column || random
+        bool          direction; // up = true; down = false
+        float         nextSpawnTime;
     };
 
     class CEnemySpawnSystem {
