@@ -1,6 +1,7 @@
 #include "NetworkThread.hpp"
 #include "Shared/Types.hpp"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstring>
@@ -86,13 +87,58 @@ void CNetworkThread::run() {
                     Game::SSnapshotEntity entity;
                     std::uint64_t         entityId = 0;
                     std::memcpy(&entityId, buffer.data() + offset + 1, sizeof(entityId));
-                    entity.id = static_cast<std::uint32_t>(entityId);
-                    std::memcpy(&entity.kind, buffer.data() + offset + 9, sizeof(entity.kind));
-                    std::memcpy(&entity.x, buffer.data() + offset + 10, sizeof(entity.x));
-                    std::memcpy(&entity.y, buffer.data() + offset + 14, sizeof(entity.y));
-                    std::memcpy(&entity.health, buffer.data() + offset + 18, sizeof(entity.health));
+                    entity.id                              = static_cast<std::uint32_t>(entityId);
+                    const auto            payload          = offset + Net::CommandHeaderSize;
+                    constexpr std::size_t fixedPayloadSize = sizeof(entity.kind) + sizeof(entity.x) +
+                        sizeof(entity.y) + sizeof(entity.health) + sizeof(entity.layer) +
+                        sizeof(entity.scale) + sizeof(entity.offsetX) + sizeof(entity.offsetY) +
+                        sizeof(entity.rotation) + sizeof(entity.atlas) +
+                        sizeof(entity.baseDimension.width) + sizeof(entity.baseDimension.height) +
+                        sizeof(std::uint64_t) + sizeof(entity.frameDuration) + sizeof(std::uint64_t);
+                    if (payload + fixedPayloadSize >= size - sizeof(Net::Terminator))
+                        break;
+                    std::memcpy(&entity.kind, buffer.data() + payload, sizeof(entity.kind));
+                    std::memcpy(&entity.x, buffer.data() + payload + 1, sizeof(entity.x));
+                    std::memcpy(&entity.y, buffer.data() + payload + 5, sizeof(entity.y));
+                    std::memcpy(&entity.health, buffer.data() + payload + 9, sizeof(entity.health));
+                    std::size_t cursor = payload + 11;
+                    std::memcpy(&entity.layer, buffer.data() + cursor, sizeof(entity.layer));
+                    cursor += sizeof(entity.layer);
+                    std::memcpy(&entity.scale, buffer.data() + cursor, sizeof(entity.scale));
+                    cursor += sizeof(entity.scale);
+                    std::memcpy(&entity.offsetX, buffer.data() + cursor, sizeof(entity.offsetX));
+                    cursor += sizeof(entity.offsetX);
+                    std::memcpy(&entity.offsetY, buffer.data() + cursor, sizeof(entity.offsetY));
+                    cursor += sizeof(entity.offsetY);
+                    std::memcpy(&entity.rotation, buffer.data() + cursor, sizeof(entity.rotation));
+                    cursor += sizeof(entity.rotation);
+                    std::memcpy(&entity.atlas, buffer.data() + cursor, sizeof(entity.atlas));
+                    cursor += sizeof(entity.atlas);
+                    std::memcpy(&entity.baseDimension.width, buffer.data() + cursor,
+                                sizeof(entity.baseDimension.width));
+                    cursor += sizeof(entity.baseDimension.width);
+                    std::memcpy(&entity.baseDimension.height, buffer.data() + cursor,
+                                sizeof(entity.baseDimension.height));
+                    cursor += sizeof(entity.baseDimension.height);
+                    std::uint64_t wireFrames = 0;
+                    std::memcpy(&wireFrames, buffer.data() + cursor, sizeof(wireFrames));
+                    entity.frames = static_cast<std::size_t>(wireFrames);
+                    cursor += sizeof(wireFrames);
+                    std::memcpy(&entity.frameDuration, buffer.data() + cursor,
+                                sizeof(entity.frameDuration));
+                    cursor += sizeof(entity.frameDuration);
+                    std::uint64_t wireVariant = 0;
+                    std::memcpy(&wireVariant, buffer.data() + cursor, sizeof(wireVariant));
+                    entity.variant = static_cast<std::size_t>(wireVariant);
+                    cursor += sizeof(wireVariant);
+                    const auto* end = std::find(buffer.data() + cursor,
+                                                buffer.data() + size - sizeof(Net::Terminator), '\n');
+                    if (end == buffer.data() + size - sizeof(Net::Terminator))
+                        break;
+                    entity.texture.assign(reinterpret_cast<const char*>(buffer.data() + cursor),
+                                          static_cast<std::size_t>(end - (buffer.data() + cursor)));
                     entities.push_back(entity);
-                    offset += Net::CommandHeaderSize + 11;
+                    offset = static_cast<std::size_t>(end - buffer.data()) + 1;
                 }
                 mSceneData.replaceEntities(std::move(entities));
                 ++mSceneData.tick;

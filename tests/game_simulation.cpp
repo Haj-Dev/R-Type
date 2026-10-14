@@ -6,7 +6,7 @@
 #include <vector>
 
 TEST(GameSimulation, SpawnsConnectedPlayerAndEnemy) {
-    Game::CSimulation simulation;
+    Game::CSimulation simulation = Game::CSimulation::deterministic();
     SPLayerActions actions;
     actions.connected.at(0) = true;
     simulation.applyActions(actions);
@@ -25,7 +25,7 @@ TEST(GameSimulation, SpawnsConnectedPlayerAndEnemy) {
 }
 
 TEST(GameSimulation, PlayerInputMovesAndFires) {
-    Game::CSimulation simulation;
+    Game::CSimulation simulation = Game::CSimulation::deterministic();
     SPLayerActions actions;
     actions.connected.at(0) = true;
     actions.states.at(0).right = true;
@@ -45,7 +45,7 @@ TEST(GameSimulation, PlayerInputMovesAndFires) {
 }
 
 TEST(GameSimulation, ConnectedPlayersGetSeparateEntities) {
-    Game::CSimulation simulation;
+    Game::CSimulation simulation = Game::CSimulation::deterministic();
     SPLayerActions actions;
     actions.connected.at(0) = true;
     actions.connected.at(1) = true;
@@ -65,7 +65,7 @@ TEST(GameSimulation, ConnectedPlayersGetSeparateEntities) {
 }
 
 TEST(GameSimulation, DisconnectedPlayerIsRemoved) {
-    Game::CSimulation simulation;
+    Game::CSimulation simulation = Game::CSimulation::deterministic();
     SPLayerActions actions;
     actions.connected.at(0) = true;
     actions.connected.at(1) = true;
@@ -88,7 +88,7 @@ TEST(GameSimulation, DisconnectedPlayerIsRemoved) {
 }
 
 TEST(GameSimulation, PlayerMovementIsClampedToWorld) {
-    Game::CSimulation simulation;
+    Game::CSimulation simulation = Game::CSimulation::deterministic();
     SPLayerActions actions;
     actions.connected.at(0) = true;
     actions.states.at(0).left = true;
@@ -106,7 +106,7 @@ TEST(GameSimulation, PlayerMovementIsClampedToWorld) {
 }
 
 TEST(GameSimulation, ProjectileCooldownPreventsRapidFire) {
-    Game::CSimulation simulation;
+    Game::CSimulation simulation = Game::CSimulation::deterministic();
     SPLayerActions actions;
     actions.connected.at(0) = true;
     actions.states.at(0).fire = true;
@@ -123,7 +123,7 @@ TEST(GameSimulation, ProjectileCooldownPreventsRapidFire) {
 }
 
 TEST(GameSimulation, ProjectilesAreCleanedUp) {
-    Game::CSimulation simulation;
+    Game::CSimulation simulation = Game::CSimulation::deterministic();
     SPLayerActions firing;
     firing.connected.at(0) = true;
     firing.states.at(0).fire = true;
@@ -143,7 +143,7 @@ TEST(GameSimulation, ProjectilesAreCleanedUp) {
 }
 
 TEST(GameSimulation, ProjectileCanDestroyEnemy) {
-    Game::CSimulation simulation;
+    Game::CSimulation simulation = Game::CSimulation::deterministic();
     SPLayerActions moveUp;
     moveUp.connected.at(0) = true;
     moveUp.states.at(0).up = true;
@@ -162,5 +162,5 @@ TEST(GameSimulation, ProjectileCanDestroyEnemy) {
     EXPECT_EQ(std::count_if(entities.begin(), entities.end(), [](const auto& entity) {
                   return entity.kind == Game::eEntityKind::ENEMY;
               }),
-              1);
+              0);
 }

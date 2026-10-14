@@ -7,6 +7,7 @@
 
 #include "Shared/SceneData.hpp"
 #include "Shared/PlayerActions.hpp"
+#include "Shared/Systems/GameSystems.hpp"
 
 class CLogicThread {
   public:
@@ -23,8 +24,10 @@ class CLogicThread {
   private:
     void                     run();
 
+    SSceneData&              mSceneData;
     std::mutex&              mtex;
     std::atomic_bool&        mRunning;
     std::condition_variable& mStopCondition;
     std::thread              mThread;
+    Game::CAnimationSystem   mAnimationSystem;
 };

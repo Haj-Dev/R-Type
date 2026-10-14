@@ -11,7 +11,7 @@ namespace {
 
     static_assert(std::is_base_of_v<AComponent, SCPosition>);
     static_assert(std::is_base_of_v<AComponent, SCVelocity>);
-    static_assert(std::is_base_of_v<AComponent, SCDrawable>);
+    static_assert(std::is_base_of_v<AComponent, SCDrawableShape>);
 
     template <typename T>
     T readBytes(const std::vector<std::uint8_t>& packet, std::size_t offset) {
@@ -124,8 +124,8 @@ TEST(NetworkProtocol, PacketValidationChecksExpectedTypeAndTerminator) {
     EXPECT_FALSE(Net::validPacket(wrongFirstTerminator.data(), wrongFirstTerminator.size(),
                                   Net::ePacketType::HELLO));
 
-    auto wrongSecondTerminator   = hello;
-    wrongSecondTerminator.back() = 0;
+    auto wrongSecondTerminator                                 = hello;
+    wrongSecondTerminator.at(wrongSecondTerminator.size() - 1) = 0;
     EXPECT_FALSE(Net::validPacket(wrongSecondTerminator.data(), wrongSecondTerminator.size(),
                                   Net::ePacketType::HELLO));
 
@@ -158,14 +158,21 @@ TEST(NetworkProtocol, WelcomePacketRejectsMalformedCommandAndSize) {
 }
 
 TEST(NetworkProtocol, SnapshotEncodesEntityFields) {
-    SSceneData scene;
-    scene.entities.push_back(Game::SSnapshotEntity{
+    SSceneData            scene;
+    Game::SSnapshotEntity entity{
         .id     = 42,
         .kind   = Game::eEntityKind::PLAYER,
         .x      = 123.5F,
         .y      = 456.25F,
         .health = 3,
-    });
+        .texture = {},
+    };
+    entity.atlas         = true;
+    entity.baseDimension = SDimentions{.width = 32U, .height = 24U};
+    entity.frames        = 6U;
+    entity.frameDuration = 0.12F;
+    entity.variant       = 2U;
+    scene.entities.push_back(entity);
 
     const auto            packet        = Net::makeSnapshot(scene);
     constexpr std::size_t commandOffset = Net::HeaderSize;
@@ -178,6 +185,12 @@ TEST(NetworkProtocol, SnapshotEncodesEntityFields) {
     EXPECT_FLOAT_EQ(readBytes<float>(packet, payloadOffset + 1), 123.5F);
     EXPECT_FLOAT_EQ(readBytes<float>(packet, payloadOffset + 5), 456.25F);
     EXPECT_EQ(readBytes<std::int16_t>(packet, payloadOffset + 9), 3);
+    EXPECT_TRUE(packet.at(payloadOffset + 31));
+    EXPECT_EQ(readBytes<std::uint32_t>(packet, payloadOffset + 32), 32U);
+    EXPECT_EQ(readBytes<std::uint32_t>(packet, payloadOffset + 36), 24U);
+    EXPECT_EQ(readBytes<std::uint64_t>(packet, payloadOffset + 40), 6U);
+    EXPECT_FLOAT_EQ(readBytes<float>(packet, payloadOffset + 48), 0.12F);
+    EXPECT_EQ(readBytes<std::uint64_t>(packet, payloadOffset + 52), 2U);
 }
 
 TEST(SceneData, SnapshotProjectionBuildsComponentRegistry) {
@@ -189,6 +202,7 @@ TEST(SceneData, SnapshotProjectionBuildsComponentRegistry) {
             .x      = 12.0F,
             .y      = 34.0F,
             .health = 2,
+            .texture = {},
         },
     });
 
@@ -200,7 +214,7 @@ TEST(SceneData, SnapshotProjectionBuildsComponentRegistry) {
             EXPECT_EQ(type.value, Game::eEntityKind::ENEMY);
             EXPECT_EQ(health.value, 2);
         });
-    EXPECT_EQ(scene.renderRegistry.pool<SCDrawable>().size(), 1U);
+    EXPECT_EQ(scene.renderRegistry.pool<SCDrawableShape>().size(), 1U);
 }
 
 TEST(SceneData, SnapshotProjectionKeepsProjectileWithoutHealthComponent) {
@@ -211,11 +225,13 @@ TEST(SceneData, SnapshotProjectionKeepsProjectileWithoutHealthComponent) {
             .kind = Game::eEntityKind::PLAYER_PROJECTILE,
             .x    = 42.0F,
             .y    = 24.0F,
+            .texture = {},
         },
     });
 
     ASSERT_EQ(scene.renderRegistry.size(), 1U);
-    ASSERT_TRUE(scene.renderRegistry.has<SCDrawable>(*scene.renderRegistry.view<SCPosition>().begin()));
+    ASSERT_TRUE(
+        scene.renderRegistry.has<SCDrawableShape>(*scene.renderRegistry.view<SCPosition>().begin()));
     scene.renderRegistry.each<SCPosition, SCEntityType>(
         [&](Ecs::SEntity entity, SCPosition& position, SCEntityType& type) {
             EXPECT_FLOAT_EQ(position.x, 42.0F);

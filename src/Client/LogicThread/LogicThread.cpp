@@ -2,9 +2,9 @@
 
 #include <chrono>
 
-CLogicThread::CLogicThread(SSceneData&, SPLayerActions&, std::mutex& sceneMutex,
+CLogicThread::CLogicThread(SSceneData& sceneData, SPLayerActions&, std::mutex& sceneMutex,
                            std::atomic_bool& running, std::condition_variable& stopCondition) :
-    mtex(sceneMutex), mRunning(running), mStopCondition(stopCondition) {}
+    mSceneData(sceneData), mtex(sceneMutex), mRunning(running), mStopCondition(stopCondition) {}
 
 CLogicThread::~CLogicThread() {
     join();
@@ -23,9 +23,14 @@ void CLogicThread::join() {
 }
 
 void CLogicThread::run() {
-    constexpr auto tickInterval = std::chrono::milliseconds(16);
+    constexpr auto  tickInterval = std::chrono::milliseconds(16);
+    constexpr float tickDelta    = 0.016F;
 
     while (mRunning.load()) {
+        {
+            std::scoped_lock lock(mtex);
+            mAnimationSystem.update(mSceneData.renderRegistry, tickDelta);
+        }
         std::unique_lock lock(mtex);
         if (mStopCondition.wait_for(lock, tickInterval, [this] { return !mRunning.load(); })) {
             break;
