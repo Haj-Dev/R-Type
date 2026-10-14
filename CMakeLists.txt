@@ -100,6 +100,22 @@ if(asio_ADDED)
   endif()
 endif()
 
+# --- tomlplusplus -----------------------------------------------------------
+
+CPMAddPackage(
+  NAME tomlplusplus
+  GITHUB_REPOSITORY marzer/tomlplusplus
+  VERSION 3.4.0
+  GIT_SHALLOW TRUE
+  DOWNLOAD_ONLY TRUE
+)
+
+if(tomlplusplus_ADDED)
+  add_library(tomlplusplus INTERFACE)
+  target_include_directories(tomlplusplus SYSTEM INTERFACE
+                             "${tomlplusplus_SOURCE_DIR}/include")
+endif()
+
 # --- GoogleTest -------------------------------------------------------------
 
 if(BUILD_TESTING)
@@ -173,7 +189,7 @@ else()
 endif()
 
 target_include_directories(rtype_core ${_core_scope} "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(rtype_core ${_core_scope} raylib asio)
+target_link_libraries(rtype_core ${_core_scope} raylib asio tomlplusplus)
 
 # ---------------------------------------------------------------------------
 # Server & Client
@@ -196,8 +212,7 @@ if(BUILD_TESTING)
 
   if(RTYPE_TEST_SOURCES)
     add_executable(rtype_tests ${RTYPE_TEST_SOURCES})
-    target_include_directories(rtype_tests PRIVATE "${CMAKE_SOURCE_DIR}/src")
-    target_link_libraries(rtype_tests PRIVATE GTest::gtest_main)
+    target_link_libraries(rtype_tests PRIVATE rtype_core GTest::gtest_main)
     rtype_configure_executable(rtype_tests)
 
     gtest_discover_tests(rtype_tests)

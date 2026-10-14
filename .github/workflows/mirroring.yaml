@@ -64,7 +64,9 @@ jobs:
         env:
           VERSION: ${{ needs.prepare.outputs.tag }}
         run: |
-          zip -r "rtype-linux-${VERSION}.zip" build
+          mkdir rtype
+          cp build/R-Type_server build/R-Type_client rtype
+          zip -r "rtype-linux-${VERSION}.zip" rtype
 
       - name: Upload Linux build
         uses: actions/upload-artifact@v7
@@ -88,7 +90,10 @@ jobs:
         shell: pwsh
         env:
           VERSION: ${{ needs.prepare.outputs.tag }}
-        run: Compress-Archive -Path build\* -DestinationPath "rtype-windows-$env:VERSION.zip"
+        run: |
+          New-Item -ItemType Directory -Path rtype | Out-Null
+          Copy-Item build\R-Type_server, build\R-Type_client -Destination rtype
+          Compress-Archive -Path rtype -DestinationPath "rtype-windows-$env:VERSION.zip"
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v7
