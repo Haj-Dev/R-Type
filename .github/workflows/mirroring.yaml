@@ -92,7 +92,7 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.tag }}
         run: |
           New-Item -ItemType Directory -Path rtype | Out-Null
-          Copy-Item build\R-Type_server, build\R-Type_client -Destination rtype
+          Copy-Item build\R-Type_server.exe, build\R-Type_client.exe -Destination rtype
           Compress-Archive -Path rtype -DestinationPath "rtype-windows-$env:VERSION.zip"
 
       - name: Upload Windows build
