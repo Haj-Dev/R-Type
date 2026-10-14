@@ -12,6 +12,7 @@
 #include "Shared/PlayerActions.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <iostream>
 #include <optional>
@@ -51,14 +52,23 @@ namespace Game {
                 spawnProjectile(registry, projectile.position, projectile.playerId);
         }
 
-        void ensureConnectedPlayers(Ecs::CRegistry& registry, const SPLayerActions& actions) const {
+        void synchronizeConnectedPlayers(Ecs::CRegistry& registry, const SPLayerActions& actions) const {
+            std::vector<Ecs::SEntity>                    disconnected;
+            std::array<bool, SPLayerActions::MaxPlayers> exists{};
+
+            registry.each<SCPlayer>([&](Ecs::SEntity entity, SCPlayer& player) {
+                if (player.id >= SPLayerActions::MaxPlayers || !actions.connected.at(player.id)) {
+                    disconnected.push_back(entity);
+                    return;
+                }
+                exists.at(player.id) = true;
+            });
+
+            for (const auto entity : disconnected)
+                registry.destroy(entity);
+
             for (std::uint8_t id = 0; id < SPLayerActions::MaxPlayers; ++id) {
-                if (!actions.connected.at(id))
-                    continue;
-                bool exists = false;
-                registry.each<SCPlayer>(
-                    [&](Ecs::SEntity, SCPlayer& player) { exists = exists || player.id == id; });
-                if (!exists)
+                if (actions.connected.at(id) && !exists.at(id))
                     spawnPlayer(registry, id);
             }
         }

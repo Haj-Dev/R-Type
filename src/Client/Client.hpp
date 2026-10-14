@@ -1,16 +1,17 @@
 #pragma once
 
+#include "Shared/SceneData.hpp"
+#include "Shared/PlayerActions.hpp"
+
+#include "Client/DrawThread/DrawThread.hpp"
+#include "Client/LogicThread/LogicThread.hpp"
+#include "Client/NetworkThread/NetworkThread.hpp"
+
+#include <asio.hpp>
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
 #include <string>
-#include <asio.hpp>
-
-#include "Client/NetworkThread/NetworkThread.hpp"
-#include "Client/DrawThread/DrawThread.hpp"
-#include "Client/LogicThread/LogicThread.hpp"
-#include "Shared/SceneData.hpp"
-#include "Shared/PlayerActions.hpp"
 
 class CClient {
   public:

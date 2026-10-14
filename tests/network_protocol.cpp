@@ -124,8 +124,8 @@ TEST(NetworkProtocol, PacketValidationChecksExpectedTypeAndTerminator) {
     EXPECT_FALSE(Net::validPacket(wrongFirstTerminator.data(), wrongFirstTerminator.size(),
                                   Net::ePacketType::HELLO));
 
-    auto wrongSecondTerminator   = hello;
-    wrongSecondTerminator.back() = 0;
+    auto wrongSecondTerminator = hello;
+    wrongSecondTerminator.at(wrongSecondTerminator.size() - 1) = 0;
     EXPECT_FALSE(Net::validPacket(wrongSecondTerminator.data(), wrongSecondTerminator.size(),
                                   Net::ePacketType::HELLO));
 
