@@ -15,8 +15,10 @@
 #include <cstdint>
 #include <iostream>
 #include <optional>
+#include <random>
 #include <sstream>
 #include <stdexcept>
+#include <toml++/toml.hpp>
 #include <toml++/impl/array.hpp>
 #include <toml++/impl/forward_declarations.hpp>
 #include <toml++/impl/parser.hpp>
@@ -101,23 +103,18 @@ namespace Game {
 
     class CEnemySpawn {
       public:
-        CEnemySpawn(const toml::table &tbl) {
-            std::optional<float> optStart = tbl.at_path("start").value<float>();
-            std::optional<uint> optCount = tbl.at_path("count").value<uint>();
-
-            if (!optStart.has_value() || !optCount.has_value())
-                throw std::runtime_error((std::ostringstream("Error: Failed to read value in ennemy: \n") << tbl).str());
-            nextSpawnTime = optStart.value();
-            count = optCount.value();
-            type = tbl.at_path("type").value_or("linear");
-            spawnSpeed = tbl.at_path("spawnSpeed").value_or(1);
-            speed = tbl.at_path("speed").value_or(1);
-            health = tbl.at_path("health").value_or(1);
-            damage = tbl.at_path("damage").value_or(1);
-            startY = tbl.at_path("startY").value_or(0);
-            size = tbl.at_path("size").value_or(16);
+        CEnemySpawn(const toml::table& tbl) {
+            nextSpawnTime = tbl.at_path("start").value_or(0);
+            count         = tbl.at_path("count").value_or(1);
+            type          = tbl.at_path("type").value_or("linear");
+            spawnSpeed    = tbl.at_path("spawnSpeed").value_or(1);
+            speed         = tbl.at_path("speed").value_or(50);
+            health        = tbl.at_path("health").value_or(1);
+            damage        = tbl.at_path("damage").value_or(1);
+            startY        = tbl.at_path("startY").value_or(500);
+            size          = tbl.at_path("size").value_or(16);
             if (type == "column") {
-                gapY = tbl.at_path("gapY").value_or(0);
+                gapY      = tbl.at_path("gapY").value_or(0);
                 direction = std::string(tbl.at_path("direction").value_or("down")) == "up";
             }
         }
@@ -127,72 +124,109 @@ namespace Game {
             nextSpawnTime += spawnSpeed;
         }
 
-        bool toDelete() const noexcept {return spawned >= count;}
+        bool toDelete() const noexcept {
+            return spawned >= count && (type != "random" || count != 1);
+        }
 
-        [[nodiscard]] uint getSpawned() const noexcept {return spawned;}
-        [[nodiscard]] uint getCount() const noexcept {return count;}
-        [[nodiscard]] float getSpeed() const noexcept {return speed;}
-        [[nodiscard]] int16_t getHealth() const noexcept {return health;}
-        [[nodiscard]] int16_t getDamage() const noexcept {return damage;}
-        [[nodiscard]] float getStartY() const noexcept {return startY;}
-        [[nodiscard]] float getGapY() const noexcept {return gapY;}
-        [[nodiscard]] std::string getType() const noexcept {return type;}
-        [[nodiscard]] bool getDirection() const noexcept {return direction;}
-        [[nodiscard]] float getNextSpawnTime() const noexcept {return nextSpawnTime;}
-        [[nodiscard]] float getSize() const noexcept {return size;}
+        [[nodiscard]] uint getSpawned() const noexcept {
+            return spawned;
+        }
+        [[nodiscard]] uint getCount() const noexcept {
+            return count;
+        }
+        [[nodiscard]] float getSpeed() const noexcept {
+            return speed;
+        }
+        [[nodiscard]] int16_t getHealth() const noexcept {
+            return health;
+        }
+        [[nodiscard]] int16_t getDamage() const noexcept {
+            return damage;
+        }
+        [[nodiscard]] float getStartY() const noexcept {
+            return startY;
+        }
+        [[nodiscard]] float getGapY() const noexcept {
+            return gapY;
+        }
+        [[nodiscard]] std::string getType() const noexcept {
+            return type;
+        }
+        [[nodiscard]] bool getDirection() const noexcept {
+            return direction;
+        }
+        [[nodiscard]] float getNextSpawnTime() const noexcept {
+            return nextSpawnTime;
+        }
+        [[nodiscard]] float getSize() const noexcept {
+            return size;
+        }
 
       private:
-        uint spawned = 0;
-        uint count;
-        float spawnSpeed = 1;
-        float speed = 1;
-        uint size = 16;
-        int16_t health = 1;
-        int16_t damage = 1;
-        uint startY = 0;
-        uint gapY = 0;
-        std::string type = "linear"; // linear || column
-        bool direction = false; // up = true; down = false
-        float nextSpawnTime;
+        uint        spawned = 0;
+        uint        count;
+        float       spawnSpeed;
+        float       speed;
+        uint        size;
+        int16_t     health;
+        int16_t     damage;
+        uint        startY;
+        uint        gapY;
+        std::string type; // linear || column || random
+        bool        direction;    // up = true; down = false
+        float       nextSpawnTime;
     };
 
     class CEnemySpawnSystem {
       public:
-        CEnemySpawnSystem(const std::string &filepath) {
-            toml::parse_result result = toml::parse_file(filepath);
-            if (!result) {
-                std::cerr << "Error parsing file: " << result.error() << std::endl;
+        CEnemySpawnSystem(const std::string& filepath) {
+            toml::table tbl;
+            try {
+                tbl = toml::parse_file(filepath);
+            } catch (const toml::parse_error& err) {
+                std::cerr << "Error parsing file: " << err << std::endl;
                 return;
             }
-            toml::table tbl = std::move(result);
-            toml::array *array = tbl.at_path("enemies").as_array();
+            toml::array* array = tbl.at_path("enemies").as_array();
             if (array == nullptr)
                 return;
             enemySpawns.clear();
-            for (toml::node &tableEntry: *array)
+            for (toml::node& tableEntry : *array)
                 enemySpawns.emplace_back(*tableEntry.as_table());
         }
 
         void update(Ecs::CRegistry& registry, float delta) {
             timer_ += delta;
 
-            for (CEnemySpawn &enemySpawn: enemySpawns) {
+            for (CEnemySpawn& enemySpawn : enemySpawns) {
                 if (enemySpawn.getNextSpawnTime() > timer_)
                     continue;
                 const auto entity = registry.create();
-                registry.emplace<SCPosition>(entity, SCPosition{WorldWidth + 20.0F, enemySpawn.getStartY() + (enemySpawn.getGapY() * enemySpawn.getSpawned())});
+                if (enemySpawn.getType() == "random") {
+                    std::random_device              rd;
+                    std::mt19937                    gen(rd());
+                    std::uniform_int_distribution<> dis(0, 1000);
+                    registry.emplace<SCPosition>(
+                        entity, SCPosition{WorldWidth + 20.0F, static_cast<float>(dis(gen))});
+                } else {
+                    registry.emplace<SCPosition>(
+                        entity,
+                        SCPosition{WorldWidth + 20.0F,
+                                   enemySpawn.getStartY() +
+                                       (enemySpawn.getGapY() * enemySpawn.getSpawned())});
+                }
                 registry.emplace<SCVelocity>(entity, SCVelocity{-(enemySpawn.getSpeed()), 0.0F});
                 registry.emplace<SCHealth>(entity, SCHealth{enemySpawn.getHealth()});
                 registry.emplace<SCCollider>(entity, SCCollider{enemySpawn.getSize()});
                 registry.emplace<SCEntityType>(entity, SCEntityType{eEntityKind::ENEMY});
                 enemySpawn.enemySpawned();
             }
-            std::erase_if(enemySpawns, [](CEnemySpawn &enemySpawn) {return enemySpawn.toDelete();});
+            std::erase_if(enemySpawns, [](CEnemySpawn& enemySpawn) { return enemySpawn.toDelete(); });
         }
 
       private:
         std::vector<CEnemySpawn> enemySpawns;
-        float timer_ = 0.0F;
+        float                    timer_ = 0.0F;
     };
 
     class CCollisionSystem {

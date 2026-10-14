@@ -6,6 +6,9 @@ player="/assests/player.png"
 nextLevel="/levels/level_2"
 
 [[enemies]]
+type="random"
+
+[[enemies]]
 type="column"
 start=10
 startY=1200

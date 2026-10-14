@@ -100,6 +100,7 @@ CPMAddPackage(
   GITHUB_REPOSITORY marzer/tomlplusplus
   VERSION 3.4.0
   GIT_SHALLOW TRUE
+  DOWNLOAD_ONLY TRUE
 )
 
 if(tomlplusplus_ADDED)
@@ -197,8 +198,7 @@ if(BUILD_TESTING)
 
   if(RTYPE_TEST_SOURCES)
     add_executable(rtype_tests ${RTYPE_TEST_SOURCES})
-    target_include_directories(rtype_tests PRIVATE "${CMAKE_SOURCE_DIR}/src")
-    target_link_libraries(rtype_tests PRIVATE GTest::gtest_main)
+    target_link_libraries(rtype_tests PRIVATE rtype_core GTest::gtest_main)
     rtype_configure_executable(rtype_tests)
 
     gtest_discover_tests(rtype_tests)
