@@ -20,12 +20,11 @@ namespace Timing {
      */
     class CScopedTimerResolution {
       public:
-        CScopedTimerResolution() noexcept
 #ifdef _WIN32
-            :
-            mActive(timeBeginPeriod(1) == TIMERR_NOERROR)
+        CScopedTimerResolution() noexcept : mActive(timeBeginPeriod(1) == TIMERR_NOERROR) {}
+#else
+        CScopedTimerResolution() noexcept = default;
 #endif
-            = default;
 
         ~CScopedTimerResolution() {
 #ifdef _WIN32

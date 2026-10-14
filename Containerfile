@@ -9,3 +9,6 @@ RUN apt-get install -y ninja-build
 
 # Install OpenGL development libraries
 RUN apt-get install -y libopengl-dev libglx-dev libglu1-mesa-dev
+
+# Install zip
+RUN apt-get install -y zip unzip

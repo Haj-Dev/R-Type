@@ -38,7 +38,7 @@ namespace Game {
         CPlayerSystem     playerSystem_;
         CMovementSystem   movementSystem_;
         CAnimationSystem  animationSystem_;
-        CEnemySpawnSystem enemySpawnSystem_;
+        CEnemySpawnSystem enemySpawnSystem_ = CEnemySpawnSystem("assets/maps/init.toml");
         CCollisionSystem  collisionSystem_;
         CCleanupSystem    cleanupSystem_;
         CSnapshotSystem   snapshotSystem_;

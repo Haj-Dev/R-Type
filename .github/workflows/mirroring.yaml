@@ -51,18 +51,22 @@ jobs:
   build-linux:
     needs: prepare
     runs-on: ubuntu-latest
+    container:
+      image: inkurey22/epitest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
       - name: Build Linux
-        run: ./build.sh
+        run: ./build.sh release
 
       - name: Package Linux build
         env:
           VERSION: ${{ needs.prepare.outputs.tag }}
         run: |
-          zip -r "rtype-linux-${VERSION}.zip" build
+          mkdir rtype
+          cp build/R-Type_server build/R-Type_client rtype
+          zip -r "rtype-linux-${VERSION}.zip" rtype
 
       - name: Upload Linux build
         uses: actions/upload-artifact@v7
@@ -80,13 +84,16 @@ jobs:
 
       - name: Build Windows
         shell: pwsh
-        run: ./build.ps1
+        run: ./build.ps1 release
 
       - name: Package Windows build
         shell: pwsh
         env:
           VERSION: ${{ needs.prepare.outputs.tag }}
-        run: Compress-Archive -Path build\* -DestinationPath "rtype-windows-$env:VERSION.zip"
+        run: |
+          New-Item -ItemType Directory -Path rtype | Out-Null
+          Copy-Item build\R-Type_server.exe, build\R-Type_client.exe -Destination rtype
+          Compress-Archive -Path rtype -DestinationPath "rtype-windows-$env:VERSION.zip"
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v7
@@ -135,10 +142,12 @@ jobs:
       - name: Create source release
         env:
           GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
           TAG: ${{ needs.prepare.outputs.tag }}
           TITLE: ${{ needs.prepare.outputs.title }}
         run: |
           gh release create "$TAG" \
+            --repo "$REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "$TITLE" \
             --generate-notes \
