@@ -67,18 +67,18 @@ namespace Game {
                         continue;
                     const auto& image = texture->second;
                     Rectangle   source{
-                        .x      = 0.0F,
-                        .y      = 0.0F,
-                        .width  = static_cast<float>(image.width),
-                        .height = static_cast<float>(image.height),
+                          .x      = 0.0F,
+                          .y      = 0.0F,
+                          .width  = static_cast<float>(image.width),
+                          .height = static_cast<float>(image.height),
                     };
                     if (const auto* atlas = registry.get<SCDrawableSpriteAtlas>(command.entity)) {
                         const auto frame = atlas->currentFrame();
                         source           = Rectangle{
-                            .x      = atlas->baseDimension.width * static_cast<float>(frame),
-                            .y      = atlas->baseDimension.height * static_cast<float>(atlas->variant),
-                            .width  = static_cast<float>(atlas->baseDimension.width),
-                            .height = static_cast<float>(atlas->baseDimension.height),
+                                      .x      = atlas->baseDimension.width * static_cast<float>(frame),
+                                      .y      = atlas->baseDimension.height * static_cast<float>(atlas->variant),
+                                      .width  = static_cast<float>(atlas->baseDimension.width),
+                                      .height = static_cast<float>(atlas->baseDimension.height),
                         };
                     }
                     const Rectangle destination{
