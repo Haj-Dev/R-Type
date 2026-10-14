@@ -56,7 +56,7 @@ TEST(SpriteAtlas, SceneProjectionPreservesAtlasMetadata) {
 }
 
 TEST(SpriteAtlas, PlayerUsesTwoFrameAtlas) {
-    Game::CSimulation simulation;
+    Game::CSimulation simulation = Game::CSimulation::deterministic();
     SPLayerActions    actions;
     actions.connected.at(0) = true;
     simulation.applyActions(actions);

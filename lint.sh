@@ -96,9 +96,33 @@ for file in "${FILES[@]}"; do
     fi
 done
 
-if [[ $FAILED -gt 0 ]]; then
-    echo "clang-tidy reported problems in $FAILED file(s)." >&2
+if [[ $FAILED -eq 0 ]]; then
+    echo "clang-tidy finished with no failures."
+    exit 0
+fi
+
+echo "clang-tidy reported problems in $FAILED file(s); checking for unresolved problems after fixes." >&2
+
+# A fix run can return non-zero even when every reported diagnostic was fixed.
+# Only run the verification pass when the fixing pass reported a problem.
+VERIFY_FAILED=0
+VERIFY_ARGS=(--config-file="$CONFIG_FILE")
+if [[ -f "$BUILD_DIR/compile_commands.json" ]]; then
+    VERIFY_ARGS+=(-p "$BUILD_DIR")
+fi
+
+echo "Verifying clang-tidy fixes..."
+for file in "${FILES[@]}"; do
+    echo "==> $file"
+    # shellcheck disable=SC2086
+    if ! "$CLANG_TIDY" "${VERIFY_ARGS[@]}" ${CLANG_TIDY_ARGS:-} "$file"; then
+        VERIFY_FAILED=$((VERIFY_FAILED + 1))
+    fi
+done
+
+if [[ $VERIFY_FAILED -gt 0 ]]; then
+    echo "clang-tidy found unresolved problems in $VERIFY_FAILED file(s)." >&2
     exit 1
 fi
 
-echo "clang-tidy finished with no failures."
+echo "clang-tidy fixes resolved all reported problems."

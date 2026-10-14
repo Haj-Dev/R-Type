@@ -11,7 +11,11 @@ namespace Game {
 
     class CSimulation {
       public:
-        CSimulation() = default;
+        CSimulation() : enemySpawnSystem_("assets/maps/init.toml") {}
+
+        static CSimulation deterministic() {
+            return CSimulation(CEnemySpawnSystem::deterministic());
+        }
 
         void applyActions(const SPLayerActions& actions) {
             actions_ = actions;
@@ -38,10 +42,13 @@ namespace Game {
         CPlayerSystem     playerSystem_;
         CMovementSystem   movementSystem_;
         CAnimationSystem  animationSystem_;
-        CEnemySpawnSystem enemySpawnSystem_ = CEnemySpawnSystem("assets/maps/init.toml");
+        CEnemySpawnSystem enemySpawnSystem_;
         CCollisionSystem  collisionSystem_;
         CCleanupSystem    cleanupSystem_;
         CSnapshotSystem   snapshotSystem_;
+
+        explicit CSimulation(CEnemySpawnSystem enemySpawnSystem) :
+            enemySpawnSystem_(std::move(enemySpawnSystem)) {}
     };
 
 } // namespace Game

@@ -165,6 +165,7 @@ TEST(NetworkProtocol, SnapshotEncodesEntityFields) {
         .x      = 123.5F,
         .y      = 456.25F,
         .health = 3,
+        .texture = {},
     };
     entity.atlas         = true;
     entity.baseDimension = SDimentions{.width = 32U, .height = 24U};
@@ -201,6 +202,7 @@ TEST(SceneData, SnapshotProjectionBuildsComponentRegistry) {
             .x      = 12.0F,
             .y      = 34.0F,
             .health = 2,
+            .texture = {},
         },
     });
 
@@ -223,6 +225,7 @@ TEST(SceneData, SnapshotProjectionKeepsProjectileWithoutHealthComponent) {
             .kind = Game::eEntityKind::PLAYER_PROJECTILE,
             .x    = 42.0F,
             .y    = 24.0F,
+            .texture = {},
         },
     });
 
