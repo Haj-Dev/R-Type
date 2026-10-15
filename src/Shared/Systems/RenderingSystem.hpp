@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <raylib.h>
@@ -80,6 +81,14 @@ namespace Game {
                                       .width  = static_cast<float>(atlas->baseDimension.width),
                                       .height = static_cast<float>(atlas->baseDimension.height),
                         };
+                        if (source.width <= 0.0F || source.height <= 0.0F ||
+                            source.x < 0.0F || source.y < 0.0F ||
+                            source.x + source.width > static_cast<float>(image.width) ||
+                            source.y + source.height > static_cast<float>(image.height)) {
+                            TraceLog(LOG_ERROR, "Skipping invalid sprite atlas rectangle for '%s'",
+                                     sprite->texture.c_str());
+                            continue;
+                        }
                     }
                     const Rectangle destination{
                         .x      = position.x + sprite->offset.x,
@@ -101,9 +110,15 @@ namespace Game {
 
       private:
         void loadTexture(const std::string& path) {
-            if (textures_.contains(path))
+            if (textures_.contains(path) || failedTextures_.contains(path))
                 return;
-            textures_.emplace(path, LoadTexture(path.c_str()));
+            const auto texture = LoadTexture(path.c_str());
+            if (texture.id == 0 || texture.width <= 0 || texture.height <= 0) {
+                TraceLog(LOG_ERROR, "Failed to load texture '%s'", path.c_str());
+                failedTextures_.insert(path);
+                return;
+            }
+            textures_.emplace(path, texture);
         }
 
         static bool visible(const Ecs::CRegistry& registry, Ecs::SEntity entity) {
@@ -120,6 +135,7 @@ namespace Game {
         }
 
         std::unordered_map<std::string, Texture2D> textures_;
+        std::unordered_set<std::string>            failedTextures_;
     };
 
 } // namespace Game
