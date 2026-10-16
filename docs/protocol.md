@@ -10,12 +10,7 @@ advertised UDP port identify the client's gameplay endpoint.
 
 UDP listens on port `7001`. UDP packets use the following structure:
 
-```text
-magic (3 bytes) | packet type (1 byte) |
-  command type (1 byte) | entity ID (8 bytes) | command payload (...) |
-  ... repeated commands ...
-terminator (2 bytes: 0D 0A)
-```
+![alt text](example_packet_strcuture.svg)
 
 The magic is the ASCII sequence `HAJ`. Multi-byte numeric values currently use
 the host's little-endian representation and are serialized explicitly by
