@@ -12,6 +12,12 @@
     - `GameSimulation.hpp` — ECS world and system scheduler
     - `GameWorld.hpp` — shared world constants and snapshot DTO
 
+## Functional architecture
+
+Here is a high-level overview of the client and server structure.
+
+![alt text](<client and server structure.svg>)
+
 ## Simulation
 
 The server owns the authoritative gameplay simulation. The client does not
