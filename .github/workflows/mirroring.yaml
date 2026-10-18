@@ -66,6 +66,7 @@ jobs:
         run: |
           mkdir rtype
           cp build/R-Type_server build/R-Type_client rtype
+          cp -r assets rtype
           zip -r "rtype-linux-${VERSION}.zip" rtype
 
       - name: Upload Linux build
@@ -93,6 +94,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path rtype | Out-Null
           Copy-Item build\R-Type_server.exe, build\R-Type_client.exe -Destination rtype
+          Copy-Item assets -Destination rtype -Recurse
           Compress-Archive -Path rtype -DestinationPath "rtype-windows-$env:VERSION.zip"
 
       - name: Upload Windows build

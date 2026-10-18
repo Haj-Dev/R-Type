@@ -266,7 +266,7 @@ namespace Game {
                 registry.emplace<SCDrawableSpriteAtlas>(
                     entity,
                     SCDrawableSpriteAtlas{"assets/r-typesheet5.gif",
-                                          SDimentions{.width = 33U, .height = 36U}, 8, 0.5F, 0});
+                                          SDimentions{.width = 32U, .height = 36U}, 5, 0.5F, 0});
                 enemySpawn.enemySpawned();
             }
             std::erase_if(enemySpawns, [](CEnemySpawn& enemySpawn) { return enemySpawn.toDelete(); });

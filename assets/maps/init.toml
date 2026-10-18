@@ -47,7 +47,7 @@ score=10
 health=10
 spawnSpeed=3
 speed=80
-startY=1000
+startY=500
 texture="/assests/enemy.png"
 deathSound="/assets/enemy_death.ogg"
 

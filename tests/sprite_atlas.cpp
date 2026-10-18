@@ -2,7 +2,6 @@
 #include "Shared/GameSimulation.hpp"
 #include "Shared/SceneData.hpp"
 #include "Shared/Systems/GameSystems.hpp"
-#include "Shared/Types.hpp"
 
 #include <gtest/gtest.h>
 
