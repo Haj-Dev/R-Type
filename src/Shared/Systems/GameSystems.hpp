@@ -102,7 +102,7 @@ namespace Game {
             registry.emplace<SCDrawableSpriteAtlas>(
                 entity,
                 SCDrawableSpriteAtlas{"assets/player_atlas.png",
-                                      SDimentions{.width = 32U, .height = 32U}, 2, 0.5F, id % 2U});
+                                      SDimentions{.width = 32U, .height = 32U}, 2, 0.5F, id % 4U});
             registry.emplace<SCPlayer>(entity, SCPlayer{id});
         }
 
@@ -114,6 +114,10 @@ namespace Game {
             registry.emplace<SCCollider>(entity, SCCollider{4.0F});
             registry.emplace<SCEntityType>(entity, SCEntityType{eEntityKind::PLAYER_PROJECTILE});
             registry.emplace<SCProjectile>(entity, SCProjectile{playerId, 1.0F});
+            registry.emplace<SCDrawableSpriteAtlas>(
+                entity,
+                SCDrawableSpriteAtlas{"assets/r-typesheet3.gif",
+                                      SDimentions{.width = 17U, .height = 17U}, 12, 0.25F, 0});
         }
     };
 
@@ -259,6 +263,10 @@ namespace Game {
                 registry.emplace<SCHealth>(entity, SCHealth{enemySpawn.getHealth()});
                 registry.emplace<SCCollider>(entity, SCCollider{enemySpawn.getSize()});
                 registry.emplace<SCEntityType>(entity, SCEntityType{eEntityKind::ENEMY});
+                registry.emplace<SCDrawableSpriteAtlas>(
+                    entity,
+                    SCDrawableSpriteAtlas{"assets/r-typesheet5.gif",
+                                          SDimentions{.width = 33U, .height = 36U}, 8, 0.5F, 0});
                 enemySpawn.enemySpawned();
             }
             std::erase_if(enemySpawns, [](CEnemySpawn& enemySpawn) { return enemySpawn.toDelete(); });

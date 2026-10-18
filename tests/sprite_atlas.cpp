@@ -72,6 +72,22 @@ TEST(SpriteAtlas, PlayerUsesTwoFrameAtlas) {
     EXPECT_EQ(player->frames, 2U);
 }
 
+TEST(SpriteAtlas, EnemyUsesFiveFrameAtlas) {
+    Game::CSimulation simulation = Game::CSimulation::deterministic();
+    simulation.tick(1.0F);
+
+    const auto entities = simulation.snapshot();
+    const auto enemy    = std::ranges::find_if(
+        entities, [](const auto& entity) { return entity.kind == Game::eEntityKind::ENEMY; });
+    ASSERT_NE(enemy, entities.end());
+    EXPECT_TRUE(enemy->atlas);
+    EXPECT_EQ(enemy->texture, "assets/r-typesheet5.gif");
+    EXPECT_FLOAT_EQ(enemy->baseDimension.width, 32.0F);
+    EXPECT_FLOAT_EQ(enemy->baseDimension.height, 36.0F);
+    EXPECT_EQ(enemy->frames, 5U);
+    EXPECT_FLOAT_EQ(enemy->frameDuration, 0.5F);
+}
+
 TEST(SpriteAtlas, SnapshotRefreshPreservesAnimationState) {
     SSceneData            scene;
     Game::SSnapshotEntity snapshot;
