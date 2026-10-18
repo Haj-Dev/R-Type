@@ -194,13 +194,13 @@ target_link_libraries(rtype_core ${_core_scope} raylib asio tomlplusplus)
 # ---------------------------------------------------------------------------
 # Server & Client
 # ---------------------------------------------------------------------------
-add_executable(R-Type_server src/Server/main.cpp)
-target_link_libraries(R-Type_server PRIVATE rtype_core)
-rtype_configure_executable(R-Type_server)
+add_executable(r-type_server src/Server/main.cpp)
+target_link_libraries(r-type_server PRIVATE rtype_core)
+rtype_configure_executable(r-type_server)
 
-add_executable(R-Type_client src/Client/main.cpp)
-target_link_libraries(R-Type_client PRIVATE rtype_core)
-rtype_configure_executable(R-Type_client)
+add_executable(r-type_client src/Client/main.cpp)
+target_link_libraries(r-type_client PRIVATE rtype_core)
+rtype_configure_executable(r-type_client)
 
 # ---------------------------------------------------------------------------
 # Tests
