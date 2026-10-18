@@ -81,8 +81,8 @@ namespace Game {
                                       .width  = static_cast<float>(atlas->baseDimension.width),
                                       .height = static_cast<float>(atlas->baseDimension.height),
                         };
-                        if (source.width <= 0.0F || source.height <= 0.0F ||
-                            source.x < 0.0F || source.y < 0.0F ||
+                        if (source.width <= 0.0F || source.height <= 0.0F || source.x < 0.0F ||
+                            source.y < 0.0F ||
                             source.x + source.width > static_cast<float>(image.width) ||
                             source.y + source.height > static_cast<float>(image.height)) {
                             TraceLog(LOG_ERROR, "Skipping invalid sprite atlas rectangle for '%s'",
