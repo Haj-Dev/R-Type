@@ -24,8 +24,6 @@ jobs:
     runs-on: self-hosted
     container:
       image: inkurey22/epitest
-    outputs:
-      lint_failed: ${{ steps.lint.outcome == 'failure' }}
 
     steps:
       - name: Checkout PR branch
@@ -39,35 +37,15 @@ jobs:
       - name: Build
         run: ./build.sh
 
-      - name: Run clang-tidy with fixes
+      - name: Run clang-tidy
         id: lint
         run: ./lint.sh
         continue-on-error: true
-
-      - name: Commit and push lint fixes
-        # Can't push to forks with GITHUB_TOKEN
-        if: (steps.lint.outcome == 'success' || steps.lint.outcome == 'failure') && github.event.pull_request.head.repo.full_name == github.repository
-        run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          if git diff --quiet; then
-            echo "No lint changes"
-            exit 0
-          fi
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -u
-          git commit -m "ci: apply clang-tidy fixes"
-          git push
-
-      - name: Fail if clang-tidy found unresolved problems
-        if: steps.lint.outcome == 'failure'
-        run: exit 1
 
   # ---------- Job 2: clang-format, commit & push ----------
   format:
     name: Format
     needs: build-and-lint
-    if: always() && (needs.build-and-lint.result == 'success' || needs.build-and-lint.outputs.lint_failed == 'true')
     runs-on: self-hosted
     container:
       image: inkurey22/epitest

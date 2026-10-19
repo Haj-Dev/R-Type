@@ -4,7 +4,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUILD="$ROOT/build-coverage"
+BUILD="$ROOT/build/coverage"
 PROFDIR="$BUILD/profraw"
 
 # Override if your tools are versioned, e.g. LLVM_COV=llvm-cov-18

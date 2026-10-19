@@ -9,7 +9,7 @@ if [[ "$CONFIG" != "debug" && "$CONFIG" != "release" ]]; then
     exit 1
 fi
 
-cmake -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE="$CONFIG" -G Ninja
-cmake --build "$BUILD_DIR" -j"$(nproc)"
+cmake -B "$BUILD_DIR/$CONFIG" -DCMAKE_BUILD_TYPE="$CONFIG" -G Ninja
+cmake --build "$BUILD_DIR/$CONFIG" -j"$(nproc)"
 
-cp "$BUILD_DIR/compile_commands.json" .
+cp "$BUILD_DIR/$CONFIG/compile_commands.json" .

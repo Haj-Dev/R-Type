@@ -160,11 +160,11 @@ TEST(NetworkProtocol, WelcomePacketRejectsMalformedCommandAndSize) {
 TEST(NetworkProtocol, SnapshotEncodesEntityFields) {
     SSceneData            scene;
     Game::SSnapshotEntity entity{
-        .id     = 42,
-        .kind   = Game::eEntityKind::PLAYER,
-        .x      = 123.5F,
-        .y      = 456.25F,
-        .health = 3,
+        .id      = 42,
+        .kind    = Game::eEntityKind::PLAYER,
+        .x       = 123.5F,
+        .y       = 456.25F,
+        .health  = 3,
         .texture = {},
     };
     entity.atlas         = true;
@@ -197,11 +197,11 @@ TEST(SceneData, SnapshotProjectionBuildsComponentRegistry) {
     SSceneData scene;
     scene.replaceEntities({
         Game::SSnapshotEntity{
-            .id     = 7,
-            .kind   = Game::eEntityKind::ENEMY,
-            .x      = 12.0F,
-            .y      = 34.0F,
-            .health = 2,
+            .id      = 7,
+            .kind    = Game::eEntityKind::ENEMY,
+            .x       = 12.0F,
+            .y       = 34.0F,
+            .health  = 2,
             .texture = {},
         },
     });
@@ -221,10 +221,10 @@ TEST(SceneData, SnapshotProjectionKeepsProjectileWithoutHealthComponent) {
     SSceneData scene;
     scene.replaceEntities({
         Game::SSnapshotEntity{
-            .id   = 8,
-            .kind = Game::eEntityKind::PLAYER_PROJECTILE,
-            .x    = 42.0F,
-            .y    = 24.0F,
+            .id      = 8,
+            .kind    = Game::eEntityKind::PLAYER_PROJECTILE,
+            .x       = 42.0F,
+            .y       = 24.0F,
             .texture = {},
         },
     });

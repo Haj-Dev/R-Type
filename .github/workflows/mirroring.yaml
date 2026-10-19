@@ -65,7 +65,7 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.tag }}
         run: |
           mkdir rtype
-          cp build/r-type_server build/r-type_client rtype
+          cp build/release/r-type_server build/release/r-type_client rtype
           cp -r assets rtype
           zip -r "rtype-linux-${VERSION}.zip" rtype
 
