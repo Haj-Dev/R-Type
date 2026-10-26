@@ -1,4 +1,5 @@
 #include "DrawThread.hpp"
+#include "Shared/Systems/IRenderSystem.hpp"
 
 #include <raylib.h>
 
@@ -52,18 +53,16 @@ void CDrawThread::run() {
                 .fire  = IsKeyDown(KEY_SPACE),
             };
         }
-        std::vector<unsigned char> clearColor = {8, 12, 30, 255};
-        mRenderSystem.clear(clearColor);
+        mRenderSystem.clear(SColor{8, 12, 30, 255});
         {
             std::scoped_lock lock(mtex);
             for (int x = 0; x < 1280; x += 80)
-                DrawCircle((x + static_cast<int>(mSceneData.tick * 2)) % 1280, 80 + ((x * 37) % 600), 2,
-                           RAYWHITE);
+                mRenderSystem.drawCircle((x + static_cast<int>(mSceneData.tick * 2)) % 1280, 80 + ((x * 37) % 600), 2,
+                           SColor{255, 255, 255, 255});
             mRenderSystem.loadTextures(mSceneData.renderRegistry);
             mRenderSystem.draw(mSceneData.renderRegistry);
         }
-        std::vector<unsigned char> white = {RAYWHITE.r, RAYWHITE.g, RAYWHITE.b, RAYWHITE.a};
-        mRenderSystem.drawText(std::string("Arrow keys: move   Space: fire"), 20, 20, 20, white);
+        mRenderSystem.drawText(std::string("Arrow keys: move   Space: fire"), 20, 20, 20, SColor{255, 255, 255, 255});
         mRenderSystem.endFrame();
     }
     mRenderSystem.closeWindow();

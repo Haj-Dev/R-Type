@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <raylib.h>
-#include <vector>
 
 class CRenderSystem : public IRenderSystem {
   public:
@@ -25,23 +24,17 @@ class CRenderSystem : public IRenderSystem {
         return WindowShouldClose();
     }
 
-    virtual void clear(std::vector<unsigned char> color) const override {
-        if (color.size() != 4)
-            return;
+    void clear(SColor color) const override {
         BeginDrawing();
-        ClearBackground(Color{.r = color.at(0), .g = color.at(1), .b = color.at(2), .a = color.at(3)});
+        ClearBackground(toRaylib(color));
     }
 
-    void drawRectangle(int x, int y, int w, int h, const std::vector<unsigned char> color) const override {
-        if (color.size() != 4)
-            return;
-        DrawRectangle(x, y, w, h, Color{.r = color.at(0), .g = color.at(1), .b = color.at(2), .a = color.at(3)});
+    void drawRectangle(int x, int y, int w, int h, const SColor color) const override {
+        DrawRectangle(x, y, w, h, toRaylib(color));
     }
 
-    void drawText(std::string text, int x, int y, int fontSize, const std::vector<unsigned char> color) const override {
-        if (color.size() != 4)
-            return;
-        DrawText(text.c_str(), x, y, fontSize, Color{.r = color.at(0), .g = color.at(1), .b = color.at(2), .a = color.at(3)});
+    void drawText(std::string text, int x, int y, int fontSize, const SColor color) const override {
+        DrawText(text.c_str(), x, y, fontSize, toRaylib(color));
     }
 
     void endFrame() const override {
@@ -50,6 +43,10 @@ class CRenderSystem : public IRenderSystem {
 
     void closeWindow() const override {
         CloseWindow();
+    }
+
+    void drawCircle(int x, int y, int r, SColor color) const override {
+        DrawCircle(x, y, r, toRaylib(color));
     }
 
     void draw(Ecs::CRegistry& registry) const override {
@@ -66,10 +63,10 @@ class CRenderSystem : public IRenderSystem {
                     const float radius = shape != nullptr ? shape->radius : 18.0F;
                     const int   barX   = static_cast<int>(position.x - (barWidth / 2.0F));
                     const int   barY   = static_cast<int>(position.y - radius - 14.0F);
-                    std::vector<unsigned char> darkGrey = {DARKGRAY.r, DARKGRAY.g, DARKGRAY.b, DARKGRAY.a};
-                    std::vector<unsigned char> green = {GREEN.r, GREEN.g, GREEN.b, GREEN.a};
-                    std::vector<unsigned char> red = {RED.r, RED.g, RED.b, RED.a};
-                    std::vector<unsigned char> white = {RAYWHITE.r, RAYWHITE.g, RAYWHITE.b, RAYWHITE.a};
+                    const SColor darkGrey = fromRaylib(DARKGRAY);
+                    const SColor green    = fromRaylib(GREEN);
+                    const SColor red      = fromRaylib(RED);
+                    const SColor white    = fromRaylib(RAYWHITE);
                     drawRectangle(barX, barY, static_cast<int>(barWidth), static_cast<int>(barHeight),
                         darkGrey);
                     drawRectangle(barX, barY, static_cast<int>(barWidth * healthRatio),
@@ -81,5 +78,13 @@ class CRenderSystem : public IRenderSystem {
     }
 
   private:
+    static Color toRaylib(const SColor& c) {
+        return Color{c.r, c.g, c.b, c.a};
+    }
+
+    static SColor fromRaylib(const Color& c) {
+        return SColor{c.r, c.g, c.b, c.a};
+    }
+
     Game::CRegistryRenderingSystem renderer_;
 };
