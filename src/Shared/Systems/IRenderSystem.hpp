@@ -15,7 +15,7 @@ class IRenderSystem {
     virtual void loadTextures(const Ecs::CRegistry& registry)                        = 0;
     virtual void drawRectangle(int x, int y, int w, int h, const SColor color) const = 0;
     virtual void drawText(std::string text, int x, int y, int fontSize, const SColor color) const = 0;
-    virtual void initWindow(int h, int w, std::string title) const                                = 0;
+    virtual void initWindow(int w, int h, std::string title) const                                = 0;
     virtual void setTargetFps(int fps) const                                                      = 0;
     virtual bool windowShouldClose() const                                                        = 0;
     virtual void clear(SColor color) const                                                        = 0;

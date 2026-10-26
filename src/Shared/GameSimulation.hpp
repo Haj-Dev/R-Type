@@ -21,6 +21,11 @@ namespace Game {
             actions_ = actions;
         }
 
+        // Rebuilds the world and systems for a fresh game session.
+        void reset() {
+            *this = CSimulation{};
+        }
+
         void tick(float delta) {
             playerSystem_.synchronizeConnectedPlayers(registry_, actions_);
             playerSystem_.update(registry_, actions_, delta);

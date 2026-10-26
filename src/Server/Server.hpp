@@ -30,7 +30,8 @@ class CServer {
     asio::io_context&       mIo;
     mutable std::mutex      mtex;
     std::condition_variable mStopCondition;
-    std::atomic_bool        mRunning = false;
+    std::atomic_bool        mRunning    = false;
+    std::atomic_bool        mGameActive = false;
     SSceneData              mSceneData;
     SPLayerActions          mPlayerActions;
     CServerLogicThread      mLogicThread;

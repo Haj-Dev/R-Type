@@ -2,6 +2,7 @@
 
 #include "Shared/SceneData.hpp"
 #include "Shared/PlayerActions.hpp"
+#include "Shared/Lobby.hpp"
 
 #include "Client/DrawThread/DrawThread.hpp"
 #include "Client/LogicThread/LogicThread.hpp"
@@ -10,6 +11,7 @@
 #include <asio.hpp>
 #include <atomic>
 #include <condition_variable>
+#include <deque>
 #include <mutex>
 #include <string>
 
@@ -32,13 +34,15 @@ class CClient {
     [[nodiscard]] SSceneData sceneData() const;
 
   private:
-    mutable std::mutex      mtex;
-    asio::io_context        mIo;
-    std::condition_variable mStopCondition;
-    std::atomic_bool        mRunning = false;
-    SSceneData              mSceneData;
-    SPLayerActions          mPlayerActions;
-    CLogicThread            mLogicThread;
-    CDrawThread             mDrawThread;
-    CNetworkThread          mNetworkThread;
+    mutable std::mutex          mtex;
+    asio::io_context            mIo;
+    std::condition_variable     mStopCondition;
+    std::atomic_bool            mRunning = false;
+    SSceneData                  mSceneData;
+    SPLayerActions              mPlayerActions;
+    Lobby::SLobbyState          mLobbyState;
+    std::deque<Lobby::SCommand> mLobbyCommands;
+    CLogicThread                mLogicThread;
+    CDrawThread                 mDrawThread;
+    CNetworkThread              mNetworkThread;
 };
