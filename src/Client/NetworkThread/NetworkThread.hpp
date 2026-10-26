@@ -40,7 +40,7 @@ class CNetworkThread {
                                                 std::size_t payloadSize);
     void                     sendLobbyFrame(const std::vector<std::uint8_t>& frame);
     void                     sendInput();
-    void                     receiveSnapshots(std::array<std::uint8_t, 2048>& buffer);
+    void                     receiveSnapshots(std::vector<std::uint8_t>& buffer);
 
     SSceneData&              mSceneData;
     SPLayerActions&          mPlayerActions;

@@ -3,7 +3,6 @@
 
 #include <gtest/gtest.h>
 
-#include <cstring>
 #include <type_traits>
 #include <vector>
 
@@ -12,13 +11,6 @@ namespace {
     static_assert(std::is_base_of_v<AComponent, SCPosition>);
     static_assert(std::is_base_of_v<AComponent, SCVelocity>);
     static_assert(std::is_base_of_v<AComponent, SCDrawableShape>);
-
-    template <typename T>
-    T readBytes(const std::vector<std::uint8_t>& packet, std::size_t offset) {
-        T value{};
-        std::memcpy(&value, packet.data() + offset, sizeof(value));
-        return value;
-    }
 
 } // namespace
 
@@ -165,7 +157,7 @@ TEST(NetworkProtocol, SnapshotEncodesEntityFields) {
         .x       = 123.5F,
         .y       = 456.25F,
         .health  = 3,
-        .texture = {},
+        .texture = "assets/player.png",
     };
     entity.atlas         = true;
     entity.baseDimension = SDimentions{.width = 32U, .height = 24U};
@@ -174,23 +166,78 @@ TEST(NetworkProtocol, SnapshotEncodesEntityFields) {
     entity.variant       = 2U;
     scene.entities.push_back(entity);
 
-    const auto            packet        = Net::makeSnapshot(scene);
-    constexpr std::size_t commandOffset = Net::HeaderSize;
-    constexpr std::size_t payloadOffset = commandOffset + Net::CommandHeaderSize;
-
+    const auto packet = Net::makeSnapshot(scene);
     ASSERT_TRUE(Net::validPacket(packet.data(), packet.size(), Net::ePacketType::SNAPSHOT));
-    ASSERT_EQ(packet.at(commandOffset), static_cast<std::uint8_t>(Net::eCommandType::SNAPSHOT_ENTITY));
-    EXPECT_EQ(readBytes<std::uint64_t>(packet, commandOffset + 1), 42U);
-    EXPECT_EQ(static_cast<Game::eEntityKind>(packet.at(payloadOffset)), Game::eEntityKind::PLAYER);
-    EXPECT_FLOAT_EQ(readBytes<float>(packet, payloadOffset + 1), 123.5F);
-    EXPECT_FLOAT_EQ(readBytes<float>(packet, payloadOffset + 5), 456.25F);
-    EXPECT_EQ(readBytes<std::int16_t>(packet, payloadOffset + 9), 3);
-    EXPECT_TRUE(packet.at(payloadOffset + 31));
-    EXPECT_EQ(readBytes<std::uint32_t>(packet, payloadOffset + 32), 32U);
-    EXPECT_EQ(readBytes<std::uint32_t>(packet, payloadOffset + 36), 24U);
-    EXPECT_EQ(readBytes<std::uint64_t>(packet, payloadOffset + 40), 6U);
-    EXPECT_FLOAT_EQ(readBytes<float>(packet, payloadOffset + 48), 0.12F);
-    EXPECT_EQ(readBytes<std::uint64_t>(packet, payloadOffset + 52), 2U);
+    std::vector<Game::SSnapshotEntity> decoded;
+    ASSERT_TRUE(Net::readSnapshot(packet.data(), packet.size(), decoded));
+    ASSERT_EQ(decoded.size(), 1U);
+    EXPECT_EQ(decoded.front().id, 42U);
+    EXPECT_EQ(decoded.front().kind, Game::eEntityKind::PLAYER);
+    EXPECT_FLOAT_EQ(decoded.front().x, 123.5F);
+    EXPECT_FLOAT_EQ(decoded.front().y, 456.25F);
+    EXPECT_EQ(decoded.front().health, 3);
+    EXPECT_EQ(decoded.front().texture, "assets/player.png");
+    EXPECT_TRUE(decoded.front().atlas);
+    EXPECT_EQ(decoded.front().baseDimension.width, 32U);
+    EXPECT_EQ(decoded.front().baseDimension.height, 24U);
+    EXPECT_EQ(decoded.front().frames, 6U);
+    EXPECT_FLOAT_EQ(decoded.front().frameDuration, 0.12F);
+    EXPECT_EQ(decoded.front().variant, 2U);
+}
+
+TEST(NetworkProtocol, DrawableLayerUsesOneByteWireValue) {
+    const SCDrawableShape     original{eDrawableShape::CIRCLE, 8.0F, 1, 127};
+    std::vector<std::uint8_t> bytes;
+    original.serialize(bytes);
+
+    ASSERT_EQ(bytes.size(),
+              sizeof(AComponent::eType) + sizeof(eDrawableShape) + sizeof(float) + sizeof(std::uint8_t) +
+                  sizeof(std::int8_t));
+    CComponentRegistry registry;
+    const auto         component = registry.deserialize(bytes);
+    const auto*        decoded   = dynamic_cast<const SCDrawableShape*>(component.get());
+    ASSERT_NE(decoded, nullptr);
+    EXPECT_EQ(decoded->layer, 127);
+}
+
+TEST(NetworkProtocol, SnapshotRejectsTruncatedComponentPayload) {
+    SSceneData scene;
+    scene.entities.push_back(Game::SSnapshotEntity{.id = 42, .texture = "sprite.png"});
+    auto packet = Net::makeSnapshot(scene);
+    packet.erase(packet.end() - 3);
+    std::vector<Game::SSnapshotEntity> decoded;
+
+    EXPECT_FALSE(Net::readSnapshot(packet.data(), packet.size(), decoded));
+}
+
+TEST(NetworkProtocol, SnapshotRoundTripsBeyondLegacyReceiveBuffers) {
+    SSceneData scene;
+    scene.entities.push_back(Game::SSnapshotEntity{
+        .id      = 42,
+        .texture = std::string(5000, 'x'),
+    });
+
+    const auto packet = Net::makeSnapshot(scene);
+    ASSERT_GT(packet.size(), 4096U);
+    ASSERT_LT(packet.size(), Net::MaxUdpPayloadSize);
+
+    std::vector<Game::SSnapshotEntity> decoded;
+    ASSERT_TRUE(Net::readSnapshot(packet.data(), packet.size(), decoded));
+    ASSERT_EQ(decoded.size(), 1U);
+    EXPECT_EQ(decoded.front().texture, scene.entities.front().texture);
+}
+
+TEST(ComponentSerialization, RegistryRoundTripsPosition) {
+    const SCPosition          original{12.5F, -4.0F};
+    std::vector<std::uint8_t> bytes;
+    original.serialize(bytes);
+
+    CComponentRegistry registry;
+    const auto         component = registry.deserialize(bytes);
+    const auto*        position  = dynamic_cast<const SCPosition*>(component.get());
+    ASSERT_NE(position, nullptr);
+    EXPECT_FLOAT_EQ(position->x, original.x);
+    EXPECT_FLOAT_EQ(position->y, original.y);
 }
 
 TEST(SceneData, SnapshotProjectionBuildsComponentRegistry) {

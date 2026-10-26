@@ -2,6 +2,7 @@
 
 #include "Shared/SceneData.hpp"
 #include "Shared/PlayerActions.hpp"
+#include "Shared/Components/ComponentRegistry.hpp"
 
 #include <array>
 #include <cstdint>
@@ -31,6 +32,7 @@ namespace Net {
     inline constexpr std::size_t HeaderSize        = 4;
     inline constexpr std::size_t CommandHeaderSize = 9;
     inline constexpr std::size_t HandshakeSize     = 7;
+    inline constexpr std::size_t MaxUdpPayloadSize = 65507;
 
     inline void appendBytes(std::vector<std::uint8_t>& output, const void* data, std::size_t size) {
         const auto* bytes = static_cast<const std::uint8_t*>(data);
@@ -161,28 +163,118 @@ namespace Net {
         auto packet = beginPacket(ePacketType::SNAPSHOT);
         for (const auto& entity : scene.entities) {
             std::vector<std::uint8_t> payload;
-            append(payload, entity.kind);
-            append(payload, entity.x);
-            append(payload, entity.y);
-            append(payload, entity.health);
-            append(payload, entity.layer);
-            append(payload, entity.scale);
-            append(payload, entity.offsetX);
-            append(payload, entity.offsetY);
-            append(payload, entity.rotation);
-            append(payload, entity.atlas);
-            append(payload, entity.baseDimension.width);
-            append(payload, entity.baseDimension.height);
-            append(payload, static_cast<std::uint64_t>(entity.frames));
-            append(payload, entity.frameDuration);
-            append(payload, static_cast<std::uint64_t>(entity.variant));
-            payload.insert(payload.end(), entity.texture.begin(), entity.texture.end());
-            payload.push_back('\n');
-            appendCommand(packet, eCommandType::SNAPSHOT_ENTITY, entity.id, payload.data(),
-                          payload.size());
+            const auto                appendComponent = [&payload](const AComponent& component) {
+                std::vector<std::uint8_t> bytes;
+                component.serialize(bytes);
+                append(payload, static_cast<std::uint32_t>(bytes.size()));
+                payload.insert(payload.end(), bytes.begin(), bytes.end());
+            };
+            append(payload, static_cast<std::uint16_t>(4U));
+            appendComponent(SCPosition{entity.x, entity.y});
+            appendComponent(SCEntityType{entity.kind});
+            appendComponent(SCHealth{entity.health});
+            if (entity.texture.empty()) {
+                appendComponent(SCDrawableShape{eDrawableShape::CIRCLE,
+                                                entity.kind == Game::eEntityKind::PLAYER ? 18.0F : 8.0F,
+                                                static_cast<std::uint8_t>(entity.kind), entity.layer});
+            } else if (entity.atlas) {
+                appendComponent(SCDrawableSpriteAtlas{
+                    entity.texture, entity.baseDimension, entity.frames, entity.frameDuration,
+                    entity.variant, entity.layer, entity.scale,
+                    SCPosition{entity.offsetX, entity.offsetY}, entity.rotation});
+            } else {
+                appendComponent(SCDrawableSprite{entity.texture, entity.layer, entity.scale,
+                                                 SCPosition{entity.offsetX, entity.offsetY},
+                                                 entity.rotation});
+            }
+            std::vector<std::uint8_t> framedPayload;
+            append(framedPayload, static_cast<std::uint32_t>(payload.size()));
+            framedPayload.insert(framedPayload.end(), payload.begin(), payload.end());
+            appendCommand(packet, eCommandType::SNAPSHOT_ENTITY, entity.id, framedPayload.data(),
+                          framedPayload.size());
         }
         finishPacket(packet);
         return packet;
+    }
+
+    inline bool readSnapshot(const std::uint8_t* data, std::size_t size,
+                             std::vector<Game::SSnapshotEntity>& entities) {
+        if (!validPacket(data, size, ePacketType::SNAPSHOT))
+            return false;
+        CComponentRegistry registry;
+        entities.clear();
+        std::size_t offset = HeaderSize;
+        while (offset < size - sizeof(Terminator)) {
+            if (offset + CommandHeaderSize + sizeof(std::uint32_t) > size - sizeof(Terminator) ||
+                data[offset] != static_cast<std::uint8_t>(eCommandType::SNAPSHOT_ENTITY))
+                return false;
+            std::uint64_t entityId = 0;
+            std::memcpy(&entityId, data + offset + 1, sizeof(entityId));
+            offset += CommandHeaderSize;
+            std::uint32_t payloadSize = 0;
+            std::memcpy(&payloadSize, data + offset, sizeof(payloadSize));
+            offset += sizeof(payloadSize);
+            if (payloadSize > size - sizeof(Terminator) - offset)
+                return false;
+            const auto payloadEnd = offset + payloadSize;
+            if (offset + sizeof(std::uint16_t) > payloadEnd)
+                return false;
+            std::uint16_t componentCount = 0;
+            std::memcpy(&componentCount, data + offset, sizeof(componentCount));
+            offset += sizeof(componentCount);
+            Game::SSnapshotEntity entity;
+            entity.id = static_cast<std::uint32_t>(entityId);
+            for (std::uint16_t index = 0; index < componentCount; ++index) {
+                if (offset + sizeof(std::uint32_t) > payloadEnd)
+                    return false;
+                std::uint32_t componentSize = 0;
+                std::memcpy(&componentSize, data + offset, sizeof(componentSize));
+                offset += sizeof(componentSize);
+                if (componentSize > payloadEnd - offset)
+                    return false;
+                const std::vector<std::uint8_t> bytes(data + offset, data + offset + componentSize);
+                offset += componentSize;
+                auto component = registry.deserialize(bytes);
+                if (!component)
+                    return false;
+                if (const auto* position = dynamic_cast<const SCPosition*>(component.get())) {
+                    entity.x = position->x;
+                    entity.y = position->y;
+                } else if (const auto* type = dynamic_cast<const SCEntityType*>(component.get())) {
+                    entity.kind = type->value;
+                } else if (const auto* health = dynamic_cast<const SCHealth*>(component.get())) {
+                    entity.health = health->value;
+                } else if (const auto* shape = dynamic_cast<const SCDrawableShape*>(component.get())) {
+                    entity.texture.clear();
+                    entity.layer = shape->layer;
+                } else if (const auto* atlas =
+                               dynamic_cast<const SCDrawableSpriteAtlas*>(component.get())) {
+                    entity.texture       = atlas->texture;
+                    entity.layer         = atlas->layer;
+                    entity.scale         = atlas->scale;
+                    entity.offsetX       = atlas->offset.x;
+                    entity.offsetY       = atlas->offset.y;
+                    entity.rotation      = atlas->rotation;
+                    entity.atlas         = true;
+                    entity.baseDimension = atlas->baseDimension;
+                    entity.frames        = atlas->frames;
+                    entity.frameDuration = atlas->frameDuration;
+                    entity.variant       = atlas->variant;
+                } else if (const auto* sprite = dynamic_cast<const SCDrawableSprite*>(component.get())) {
+                    entity.texture  = sprite->texture;
+                    entity.layer    = sprite->layer;
+                    entity.scale    = sprite->scale;
+                    entity.offsetX  = sprite->offset.x;
+                    entity.offsetY  = sprite->offset.y;
+                    entity.rotation = sprite->rotation;
+                }
+            }
+            if (offset != payloadEnd)
+                return false;
+            entities.push_back(std::move(entity));
+            offset = payloadEnd;
+        }
+        return offset == size - sizeof(Terminator);
     }
 
 } // namespace Net

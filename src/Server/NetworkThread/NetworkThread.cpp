@@ -4,9 +4,9 @@
 #include "Shared/Types.hpp"
 
 #include <algorithm>
-#include <array>
 #include <chrono>
 #include <iostream>
+#include <vector>
 
 CServerNetworkThread::CServerNetworkThread(asio::io_context& io, SSceneData& sceneData,
                                            SPLayerActions& playerActions, std::mutex& sceneMutex,
@@ -37,7 +37,7 @@ void CServerNetworkThread::run() {
 
     const Timing::CScopedTimerResolution timerResolution;
     Timing::CFixedRate                   networkRate(networkInterval);
-    std::array<std::uint8_t, 2048>       buffer{};
+    std::vector<std::uint8_t>            buffer(Net::MaxUdpPayloadSize);
     asio::ip::udp::endpoint              sender;
     mSocket.open(asio::ip::udp::v4());
     mSocket.bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), Net::DefaultUdpPort));
