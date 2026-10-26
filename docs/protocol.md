@@ -126,6 +126,35 @@ no UDP terminator.
 After sending the welcome, the server associates the TCP peer address and the
 advertised UDP port with the assigned player ID.
 
+## Lobby phase
+
+After the handshake, the client and server exchange lobby messages on the same
+TCP connection before gameplay starts. Lobby frames use a six-byte header:
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| 0 | 3 bytes | Magic: `H`, `A`, `J` |
+| 3 | 1 byte | Lobby command |
+| 4 | 2 bytes | Payload length, unsigned 16-bit big-endian |
+| 6 | Variable | Payload |
+
+Lobby multi-byte integers are big-endian. Player and master names use the same
+eight-byte encoding as the control-plane `server_name`: 1–8 printable ASCII
+bytes, zero-padded. Room names are `short_string` values: a one-byte length
+followed by printable ASCII bytes.
+
+The implemented commands are `JOIN` (`30`), `ROOM_LIST` (`31`), `CREATE_ROOM`
+(`32`), `SELECT_ROOM` (`33`), `ROOM_JOINED` (`34`), `ROOM_STATE` (`35`),
+`ROOM_REJECTED` (`36`), `LAUNCH_GAME` (`37`), `GAME_STARTED` (`38`),
+`LEAVE_ROOM` (`39`), `ROOM_LEFT` (`40`), and `ROOM_LIST_REQUEST` (`41`).
+Their payload layouts are documented in
+[`server_system.md`](server_system.md#lobby-protocol).
+
+A room holds at most four players. The first player to create or join a room is
+its master; only the master may send `LAUNCH_GAME`. The server answers with
+`GAME_STARTED` to every room member. Until then, the client shows the room and
+waits for the master.
+
 ## Packet and command types
 
 ### Packet types
@@ -190,33 +219,26 @@ A snapshot packet has packet type `3` and contains zero or more
 `SNAPSHOT_ENTITY` commands. The server sends the latest authoritative scene
 to each connected client.
 
-Each entity command has the common nine-byte command header followed by this
-payload:
+Each entity command has the common nine-byte command header, a 32-bit unsigned
+payload length, and the entity payload. The payload starts with a 16-bit
+component count followed by that many length-prefixed component records:
 
 | Field | Size | Description |
 | --- | ---: | --- |
-| Entity kind | 1 byte | Numeric entity kind |
-| X position | 4 bytes | 32-bit floating-point value |
-| Y position | 4 bytes | 32-bit floating-point value |
-| Health | 2 bytes | Signed 16-bit integer |
-| Layer | 4 bytes | Signed 32-bit integer |
-| Scale | 4 bytes | 32-bit floating-point value |
-| X offset | 4 bytes | 32-bit floating-point value |
-| Y offset | 4 bytes | 32-bit floating-point value |
-| Rotation | 4 bytes | 32-bit floating-point value |
-| Atlas flag | 1 byte | Boolean: zero is false, non-zero is true |
-| Base width | 4 bytes | Unsigned 32-bit integer |
-| Base height | 4 bytes | Unsigned 32-bit integer |
-| Frame count | 8 bytes | Unsigned 64-bit integer |
-| Frame duration | 4 bytes | 32-bit floating-point value |
-| Variant | 8 bytes | Unsigned 64-bit integer |
-| Texture name | Variable | Raw text bytes |
-| Texture delimiter | 1 byte | Line-feed byte `0A` |
+| Component count | 2 bytes | Unsigned number of component records |
+| Component size | 4 bytes | Unsigned byte length of the following record |
+| Component record | Variable | Component type ID followed by component-owned data |
 
-The fixed portion of the entity payload is 60 bytes. The texture name follows
-immediately after the variant field and is terminated by a single `0A` byte.
-Texture names must not contain an unescaped `0A` byte. An empty texture is
-represented by an immediate delimiter.
+Every component record begins with its one-byte stable type identifier. The
+remaining bytes are defined and serialized by that component class. Strings
+are encoded as a 32-bit byte length followed by UTF-8 bytes. The current
+snapshot projection sends position, entity type, health, and exactly one
+drawable component (shape, sprite, or sprite atlas). New component types can
+be added by registering a factory in the shared component registry.
+
+The entity ID in the command header identifies the entity represented by the
+payload. It is encoded as an unsigned 64-bit value on the wire; current
+entities use the lower 32 bits.
 
 The entity ID in the command header identifies the entity represented by the
 payload. It is encoded as an unsigned 64-bit value on the wire; current
@@ -239,6 +261,10 @@ sequence numbers, acknowledgements, retransmission, encryption, or
 authentication. A lost or malformed gameplay datagram is discarded and the
 next valid input or snapshot is used.
 
+The client and server receive buffers support the maximum IPv4 UDP payload of
+65,507 bytes. Datagram boundaries are preserved; a packet is never assembled
+from multiple receives.
+
 ## Message flow
 
 ```text
@@ -247,6 +273,11 @@ Client                                      Server
   |--- TCP connect to port 7000 ------------>|
   |--- 7-byte client hello ------------------>|
   |<-- 5-byte server welcome -----------------|
+  |                                           |
+  |--- JOIN / CREATE_ROOM / SELECT_ROOM ----->|
+  |<-- ROOM_LIST / ROOM_JOINED / ROOM_STATE --|
+  |--- LAUNCH_GAME (room master) ------------>|
+  |<-- GAME_STARTED ---------------------------|
   |                                           |
   |--- UDP input to port 7001 --------------->|
   |                                           |

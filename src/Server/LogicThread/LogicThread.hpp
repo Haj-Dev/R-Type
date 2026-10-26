@@ -12,7 +12,8 @@
 class CServerLogicThread {
   public:
     CServerLogicThread(SSceneData& sceneData, SPLayerActions& playerActions, std::mutex& sceneMutex,
-                       std::atomic_bool& running, std::condition_variable& stopCondition);
+                       std::atomic_bool& running, std::condition_variable& stopCondition,
+                       std::atomic_bool& gameActive);
     ~CServerLogicThread();
 
     CServerLogicThread(const CServerLogicThread&)            = delete;
@@ -29,6 +30,7 @@ class CServerLogicThread {
     std::mutex&              mtex;
     std::atomic_bool&        mRunning;
     std::condition_variable& mStopCondition;
+    std::atomic_bool&        mGameActive;
     std::thread              mThread;
     Game::CSimulation        mSimulation;
 };

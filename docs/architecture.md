@@ -38,7 +38,8 @@ itself:
 
 The client projects each received snapshot into its own render registry. The
 `CRenderSystem` queries `SCPosition` and `SCDrawable` and performs the Raylib
-drawing.
+drawing. It also depends on the `IRenderSystem` so that it can be reimplimented
+with another graphic library.
 
 ## Entity Component System
 

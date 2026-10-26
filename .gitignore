@@ -56,7 +56,6 @@ compile_commands.json
 *.log
 *.bak
 *.swp
-*.txt
 core.*
 
 
@@ -73,3 +72,6 @@ Testing/
 # Project specific
 R-Type
 .devenv
+
+# runners
+actions-runner

@@ -65,7 +65,7 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.tag }}
         run: |
           mkdir rtype
-          cp build/r-type_server build/r-type_client rtype
+          cp build/release/r-type_server build/release/r-type_client rtype
           cp -r assets rtype
           zip -r "rtype-linux-${VERSION}.zip" rtype
 
@@ -151,21 +151,6 @@ jobs:
           gh release create "$TAG" \
             --repo "$REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "$TITLE" \
-            --generate-notes \
-            "release-assets/rtype-linux-$TAG.zip" \
-            "release-assets/rtype-windows-$TAG.zip"
-
-      - name: Create mirror release
-        env:
-          GH_TOKEN: ${{ secrets.MIRROR_GITHUB_TOKEN }}
-          TAG: ${{ needs.prepare.outputs.tag }}
-          TITLE: ${{ needs.prepare.outputs.title }}
-          MIRROR_REPOSITORY: EpitechPGE3-2026/G-ING-500-LIL-5-1-rtype-2
-        run: |
-          gh release create "$TAG" \
-            --repo "$MIRROR_REPOSITORY" \
-            --target "$TAG" \
             --title "$TITLE" \
             --generate-notes \
             "release-assets/rtype-linux-$TAG.zip" \

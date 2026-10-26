@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = "Stop"
 $BuildDir = "build"
 
-cmake -B $BuildDir -G Ninja "-DCMAKE_BUILD_TYPE=$Config"
-cmake --build $BuildDir --parallel
+cmake -B "$BuildDir/$Config" -G Ninja "-DCMAKE_BUILD_TYPE=$Config"
+cmake --build "$BuildDir/$Config" --parallel
 
-Copy-Item "$BuildDir/compile_commands.json" -Destination "." -Force
+Copy-Item "$BuildDir/$Config/compile_commands.json" -Destination "." -Force

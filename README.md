@@ -10,6 +10,7 @@ Required tools (minimum):
 - CMake 3.20+
 - Ninja (recommended generator)
 - A C++23-capable compiler (Clang/LLVM or GCC)
+- optional: LLVM**21** for formatting and linting (clang-format, clang-tidy)
 
 On Linux/macOS you typically need: a system C/C++ toolchain (gcc/clang), CMake and Ninja.
 On Windows for native desktop builds you need:

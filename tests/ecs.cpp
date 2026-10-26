@@ -79,7 +79,7 @@ TEST(EcsEntity, DefaultHandleIsInvalid) {
 
 TEST(EcsEntity, OutOfRangeAndStaleHandlesAreNotAlive) {
     Ecs::CRegistry reg;
-    const auto      live = reg.create();
+    const auto     live = reg.create();
 
     EXPECT_FALSE(reg.alive(Ecs::SEntity{.index = 99, .generation = 0}));
     EXPECT_FALSE(reg.alive(Ecs::SEntity{.index = live.index, .generation = live.generation + 1}));
@@ -143,7 +143,7 @@ TEST(EcsComponent, RemovingMissingComponentIsSafe) {
 
 TEST(EcsComponent, MissingPoolReturnsNullFromMutableAndConstGet) {
     Ecs::CRegistry reg;
-    const auto      e = reg.create();
+    const auto     e = reg.create();
 
     EXPECT_EQ(reg.get<SName>(e), nullptr);
     const auto& constReg = reg;
@@ -353,10 +353,10 @@ TEST(EcsView, FiltersEntitiesUsingTheSmallestDriverPool) {
 
 TEST(EcsView, SkipsNonMatchingEntitiesInTheDriverPool) {
     Ecs::CRegistry reg;
-    const auto      matching = reg.create();
-    const auto      positionOnly = reg.create();
-    const auto      velocityOnly = reg.create();
-    const auto      anotherVelocityOnly = reg.create();
+    const auto     matching            = reg.create();
+    const auto     positionOnly        = reg.create();
+    const auto     velocityOnly        = reg.create();
+    const auto     anotherVelocityOnly = reg.create();
     reg.emplace<SPosition>(matching);
     reg.emplace<SPosition>(positionOnly);
     reg.emplace<SVelocity>(matching);

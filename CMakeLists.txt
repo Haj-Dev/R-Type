@@ -5,6 +5,18 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+find_program(CLANG_FORMAT_PROGRAM
+  NAMES clang-format
+  PATHS /usr/lib/llvm21/bin
+  NO_DEFAULT_PATH
+)
+
+find_program(CLANG_TIDY_PROGRAM
+  NAMES clang-tidy
+  PATHS /usr/lib/llvm21/bin
+  NO_DEFAULT_PATH
+)
+
 option(BUILD_TESTING "Build unit tests" ON)
 option(RTYPE_ENABLE_CCACHE
        "Use ccache to accelerate compilation when available" ON)
@@ -217,4 +229,47 @@ if(BUILD_TESTING)
 
     gtest_discover_tests(rtype_tests)
   endif()
+endif()
+
+# ---------------------------------------------------------------------------
+# Formatting and static analysis
+# ---------------------------------------------------------------------------
+
+file(GLOB_RECURSE RTYPE_FORMAT_FILES CONFIGURE_DEPENDS
+  "${CMAKE_SOURCE_DIR}/src/*.cpp"
+  "${CMAKE_SOURCE_DIR}/src/*.hpp"
+  "${CMAKE_SOURCE_DIR}/tests/*.cpp"
+  "${CMAKE_SOURCE_DIR}/tests/*.hpp"
+)
+
+find_program(CLANG_FORMAT_PROGRAM NAMES clang-format)
+if(CLANG_FORMAT_PROGRAM)
+  add_custom_target(format
+    COMMAND "${CLANG_FORMAT_PROGRAM}" -i --style=file ${RTYPE_FORMAT_FILES}
+    COMMENT "Formatting project C++ files"
+    VERBATIM
+  )
+else()
+  message(STATUS "clang-format-21 not found; the format target is unavailable")
+endif()
+
+find_program(RUN_CLANG_TIDY_PROGRAM NAMES run-clang-tidy)
+if(RUN_CLANG_TIDY_PROGRAM)
+  add_custom_target(lint
+    COMMAND "${RUN_CLANG_TIDY_PROGRAM}"
+            -p "${CMAKE_BINARY_DIR}"
+            -config-file "${CMAKE_SOURCE_DIR}/.clang-tidy"
+            -header-filter "^${CMAKE_SOURCE_DIR}/(src|tests)/.*"
+            -source-filter "^${CMAKE_SOURCE_DIR}/(src|tests)/.*"
+            -hide-progress
+            -quiet
+            -use-color
+            -format
+            -fix
+            "^${CMAKE_SOURCE_DIR}/(src|tests)/.*\\.cpp$"
+    COMMENT "Running clang-tidy"
+    VERBATIM
+  )
+else()
+  message(STATUS "run-clang-tidy-21 not found; the lint target is unavailable")
 endif()
