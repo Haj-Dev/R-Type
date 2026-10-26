@@ -18,9 +18,9 @@
 
 namespace Game {
 
-    class CRenderingSystem {
+    class CRegistryRenderingSystem {
       public:
-        ~CRenderingSystem() {
+        ~CRegistryRenderingSystem() {
             for (auto& [path, texture] : textures_)
                 UnloadTexture(texture);
         }
