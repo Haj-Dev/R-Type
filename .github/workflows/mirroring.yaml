@@ -93,7 +93,7 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.tag }}
         run: |
           New-Item -ItemType Directory -Path rtype | Out-Null
-          Copy-Item build\r-type_server.exe, build\r-type_client.exe -Destination rtype
+          Copy-Item build\release\r-type_server.exe, build\release\r-type_client.exe -Destination rtype
           Copy-Item assets -Destination rtype -Recurse
           Compress-Archive -Path rtype -DestinationPath "rtype-windows-$env:VERSION.zip"
 
