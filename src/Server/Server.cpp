@@ -1,8 +1,8 @@
 #include "Server.hpp"
 
 CServer::CServer(asio::io_context& io) :
-    mIo(io), mLogicThread(mSceneData, mPlayerActions, mtex, mRunning, mStopCondition),
-    mNetworkThread(mIo, mSceneData, mPlayerActions, mtex, mRunning, mStopCondition) {
+    mIo(io), mLogicThread(mSceneData, mPlayerActions, mtex, mRunning, mStopCondition, mGameActive),
+    mNetworkThread(mIo, mSceneData, mPlayerActions, mtex, mRunning, mStopCondition, mGameActive) {
     start();
 }
 

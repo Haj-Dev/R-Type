@@ -12,7 +12,7 @@ class CRenderSystem : public IRenderSystem {
         renderer_.loadTextures(registry);
     }
 
-    void initWindow(int h, int w, std::string title) const override {
+    void initWindow(int w, int h, std::string title) const override {
         InitWindow(w, h, title.c_str());
     }
 
@@ -79,11 +79,11 @@ class CRenderSystem : public IRenderSystem {
 
   private:
     static Color toRaylib(const SColor& c) {
-        return Color{c.r, c.g, c.b, c.a};
+        return Color{.r = c.r, .g = c.g, .b = c.b, .a = c.a};
     }
 
     static SColor fromRaylib(const Color& c) {
-        return SColor{c.r, c.g, c.b, c.a};
+        return SColor{.r = c.r, .g = c.g, .b = c.b, .a = c.a};
     }
 
     Game::CRegistryRenderingSystem renderer_;

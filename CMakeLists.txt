@@ -265,6 +265,7 @@ if(RUN_CLANG_TIDY_PROGRAM)
             -quiet
             -use-color
             -format
+            -fix
             "^${CMAKE_SOURCE_DIR}/(src|tests)/.*\\.cpp$"
     COMMENT "Running clang-tidy"
     VERBATIM

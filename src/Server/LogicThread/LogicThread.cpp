@@ -6,9 +6,10 @@
 
 CServerLogicThread::CServerLogicThread(SSceneData& sceneData, SPLayerActions& playerActions,
                                        std::mutex& sceneMutex, std::atomic_bool& running,
-                                       std::condition_variable& stopCondition) :
+                                       std::condition_variable& stopCondition,
+                                       std::atomic_bool&        gameActive) :
     mSceneData(sceneData), mPlayerActions(playerActions), mtex(sceneMutex), mRunning(running),
-    mStopCondition(stopCondition) {}
+    mStopCondition(stopCondition), mGameActive(gameActive) {}
 
 CServerLogicThread::~CServerLogicThread() {
     join();
@@ -33,8 +34,14 @@ void CServerLogicThread::run() {
     const Timing::CScopedTimerResolution timerResolution;
     Timing::CFixedRate                   tickRate(tickInterval);
 
+    bool                                 wasActive = false;
     while (mRunning.load()) {
-        {
+        const bool active = mGameActive.load();
+        if (active && !wasActive)
+            mSimulation.reset();
+        wasActive = active;
+
+        if (active) {
             std::scoped_lock lock(mtex);
             mSimulation.applyActions(mPlayerActions);
             mSimulation.tick(tickDelta);
