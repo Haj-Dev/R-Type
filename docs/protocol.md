@@ -126,6 +126,35 @@ no UDP terminator.
 After sending the welcome, the server associates the TCP peer address and the
 advertised UDP port with the assigned player ID.
 
+## Lobby phase
+
+After the handshake, the client and server exchange lobby messages on the same
+TCP connection before gameplay starts. Lobby frames use a six-byte header:
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| 0 | 3 bytes | Magic: `H`, `A`, `J` |
+| 3 | 1 byte | Lobby command |
+| 4 | 2 bytes | Payload length, unsigned 16-bit big-endian |
+| 6 | Variable | Payload |
+
+Lobby multi-byte integers are big-endian. Player and master names use the same
+eight-byte encoding as the control-plane `server_name`: 1–8 printable ASCII
+bytes, zero-padded. Room names are `short_string` values: a one-byte length
+followed by printable ASCII bytes.
+
+The implemented commands are `JOIN` (`30`), `ROOM_LIST` (`31`), `CREATE_ROOM`
+(`32`), `SELECT_ROOM` (`33`), `ROOM_JOINED` (`34`), `ROOM_STATE` (`35`),
+`ROOM_REJECTED` (`36`), `LAUNCH_GAME` (`37`), `GAME_STARTED` (`38`),
+`LEAVE_ROOM` (`39`), `ROOM_LEFT` (`40`), and `ROOM_LIST_REQUEST` (`41`).
+Their payload layouts are documented in
+[`server_system.md`](server_system.md#lobby-protocol).
+
+A room holds at most four players. The first player to create or join a room is
+its master; only the master may send `LAUNCH_GAME`. The server answers with
+`GAME_STARTED` to every room member. Until then, the client shows the room and
+waits for the master.
+
 ## Packet and command types
 
 ### Packet types
@@ -244,6 +273,11 @@ Client                                      Server
   |--- TCP connect to port 7000 ------------>|
   |--- 7-byte client hello ------------------>|
   |<-- 5-byte server welcome -----------------|
+  |                                           |
+  |--- JOIN / CREATE_ROOM / SELECT_ROOM ----->|
+  |<-- ROOM_LIST / ROOM_JOINED / ROOM_STATE --|
+  |--- LAUNCH_GAME (room master) ------------>|
+  |<-- GAME_STARTED ---------------------------|
   |                                           |
   |--- UDP input to port 7001 --------------->|
   |                                           |

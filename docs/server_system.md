@@ -3,10 +3,12 @@
 ## Scope and status
 
 - Gameplay protocol: one client ↔ one game server.
+- Room/lobby protocol: implemented on the gameplay TCP connection; rooms are lobby-only for now.
 - Control protocol (planned): master server for discovery and monitoring.
 - Gameplay wire format: [`protocol.md`](protocol.md). Simulation and responsibilities: [`architecture.md`](architecture.md).
 - This doc supersedes `protocol.md`; `protocol.md` stays authoritative for implemented packets until changes land here.
 - Master, registry, discovery, registration, health checks: planned, not implemented. Control-plane layouts here are the target.
+- Rooms: implemented. One room can be in game at a time because the current simulation is a single four-player world. Per-room simulations and larger lobbies are future work.
 - Keywords: **must**, **must not**, **should**, **should not**, **may** = required, forbidden, recommended, not-recommended, optional.
 
 ## Goals
@@ -35,7 +37,7 @@ Server list = snapshot, not reservation. A listed server can fill, drain, or van
 | Advertised endpoint | Public address/port peers use; may differ from the bind address. |
 | Healthy | Valid status response within the health timeout. |
 | Joinable | Healthy, compatible, `READY`, and has capacity. |
-| Room | One session on one server; max four players. Planned. |
+| Room | One session on one server; max four players. Implemented. |
 | Room master | First player to create/join a room; owns room-level decisions. Server stays final authority. |
 
 ## Architecture
@@ -164,9 +166,9 @@ flowchart TD
 - Current: server simulates, client renders snapshots. Planned: client simulates locally, reconciles with periodic corrections.
 - Client prediction/interpolation must be corrected by authoritative server state.
 
-#### Room selection flow (planned)
+#### Room selection flow
 
-Lobby exchange after the handshake, before gameplay. Not implemented.
+Lobby exchange after the handshake, before gameplay. Implemented.
 
 ```mermaid
 sequenceDiagram
@@ -175,17 +177,22 @@ sequenceDiagram
 
     C->>G: JOIN(player_name)
     G-->>C: ROOM_LIST(room details)
-    C->>C: Choose a room
-    C->>G: SELECT_ROOM(room)
-    G-->>C: ROOM_JOINED(room master and players) or rejection
+    C->>C: Choose a room or create one
+    C->>G: CREATE_ROOM(room_name) or SELECT_ROOM(room_id)
+    G-->>C: ROOM_JOINED(room master and players) or ROOM_REJECTED
+    G-->>C: ROOM_STATE(updated players) on membership changes
+    C->>G: LAUNCH_GAME (room master only)
+    G-->>C: GAME_STARTED(room_id)
 ```
 
 - Client sends `player_name` (8 ASCII bytes, same encoding/validation as `server_name`).
-- Server returns rooms with details: name, player count, max players, state.
-- Client selects; server admits or rejects (full/closed).
+- Server returns rooms with details: name, player count, max players, state, master name.
+- Client selects an existing room or creates one; server admits or rejects (full/closed).
 - Room master = first player to create/join. Owns room-level decisions; server stays final authority.
 - Max four players per room (matches player IDs `0`–`3`).
-- Message layouts, command values, room-detail fields: design targets.
+- Only the room master can launch. The server broadcasts `GAME_STARTED` to the room.
+- Current limitation: the server has one four-player simulation, so only one room can be in game at a time. Other rooms stay in the lobby. Per-room simulations are future work.
+- Wire layouts: see [Lobby protocol](#lobby-protocol).
 
 #### Planned simulation model
 
@@ -449,19 +456,135 @@ short_string  message
 
 ## Gameplay protocol summary
 
-After discovery: connect to a server; the planned network then runs the lobby exchange before gameplay. Gameplay (implemented):
+After discovery: connect to a server; the lobby exchange runs before gameplay. Gameplay (implemented):
 
 1. Client binds an ephemeral local UDP port.
 2. Client opens TCP to the server's advertised gameplay TCP port.
 3. Sends the seven-byte `HELLO` with its local UDP port.
-4. Server validates message + capacity, assigns player ID `0`–`3`, sends the five-byte `WELCOME`.
-5. Client sends 16-byte input datagrams to the advertised gameplay UDP port.
-6. Server advances its authoritative simulation at 60 Hz, sends scene snapshots to the registered client UDP endpoint.
-7. TCP close/loss → remove the player, clear its input state.
+4. Server validates the message and capacity, assigns a connection/player ID `0`–`3`, sends the five-byte `WELCOME`.
+5. Client and server run the lobby exchange (`JOIN`, `ROOM_LIST`, `CREATE_ROOM`/`SELECT_ROOM`, `ROOM_JOINED`, `LAUNCH_GAME`, `GAME_STARTED`).
+6. After `GAME_STARTED`, the client sends 16-byte input datagrams to the advertised gameplay UDP port.
+7. Server advances its authoritative simulation at 60 Hz, sends scene snapshots to the registered client UDP endpoints in the active room.
+8. TCP close/loss → remove the player from the room, clear its input state.
 
-Steps 5–6 are current; planned: client simulates locally at the same rate (currently 60 Hz), server sends corrections at a lower rate (order of 30 Hz) instead of full snapshots.
+Steps 6–7 are current; planned: client simulates locally at the same rate (currently 60 Hz), server sends corrections at a lower rate (order of 30 Hz) instead of full snapshots.
 
-Current player ID range limits a session to four players. A server advertising more than four total players needs room-aware IDs or one four-player simulation per room.
+Current player ID range limits a session to four players, and the server currently runs one simulation, so only one room can be in game at a time. A server advertising more than four total players needs room-aware IDs or one four-player simulation per room.
+
+## Lobby protocol
+
+The lobby runs on the gameplay TCP connection after the seven-byte `HELLO` / five-byte `WELCOME` handshake. It uses the same six-byte framing as the control plane:
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| `0` | 3 bytes | Magic `H`, `A`, `J` |
+| `3` | 1 byte | Lobby command |
+| `4` | 2 bytes | Payload length, unsigned 16-bit big-endian |
+| `6` | Variable | Payload |
+
+- Multi-byte integers are big-endian.
+- `name` is the eight-byte `server_name` encoding: 1–8 printable ASCII, zero-padded.
+- `short_string` is a `u8` byte length followed by that many printable ASCII bytes.
+- Unknown commands, bad magic, or a payload above 4096 bytes are protocol errors; the receiver closes the connection.
+
+### Command registry
+
+| Value | Name | Direction |
+| ---: | --- | --- |
+| `30` | `JOIN` | Client to server |
+| `31` | `ROOM_LIST` | Server to client |
+| `32` | `CREATE_ROOM` | Client to server |
+| `33` | `SELECT_ROOM` | Client to server |
+| `34` | `ROOM_JOINED` | Server to client |
+| `35` | `ROOM_STATE` | Server to client |
+| `36` | `ROOM_REJECTED` | Server to client |
+| `37` | `LAUNCH_GAME` | Client to server |
+| `38` | `GAME_STARTED` | Server to client |
+| `39` | `LEAVE_ROOM` | Client to server |
+| `40` | `ROOM_LEFT` | Server to client |
+| `41` | `ROOM_LIST_REQUEST` | Client to server |
+
+### `JOIN` (`30`)
+
+```text
+name  player_name
+```
+
+### `ROOM_LIST` (`31`)
+
+```text
+u16  room_count
+repeated room_count times:
+  u16           room_id
+  short_string  name
+  u8            player_count
+  u8            max_players
+  u8            state          0 = WAITING, 1 = IN_GAME
+  name          master_name
+```
+
+### `CREATE_ROOM` (`32`)
+
+```text
+short_string  room_name
+```
+
+### `SELECT_ROOM` (`33`)
+
+```text
+u16  room_id
+```
+
+### `ROOM_JOINED` (`34`) and `ROOM_STATE` (`35`)
+
+```text
+u16           room_id
+short_string  name
+u8            state
+u8            master_id
+u8            player_count
+repeated player_count times:
+  u8    player_id
+  name  player_name
+```
+
+### `ROOM_REJECTED` (`36`)
+
+```text
+u8            reason
+short_string  message
+```
+
+| Value | Name | Meaning |
+| ---: | --- | --- |
+| `0` | `INVALID_NAME` | Player name missing or invalid. |
+| `1` | `INVALID_ROOM_NAME` | Room name missing or invalid. |
+| `2` | `ROOM_NOT_FOUND` | No room with that ID. |
+| `3` | `ROOM_FULL` | The room already has four players. |
+| `4` | `ROOM_IN_GAME` | The room has already launched. |
+| `5` | `ALREADY_IN_ROOM` | The player is already in a room. |
+| `6` | `NOT_IN_ROOM` | The player is not in a room. |
+| `7` | `NOT_MASTER` | Only the room master can launch. |
+| `8` | `GAME_ALREADY_RUNNING` | Another room is already in game. |
+| `9` | `SERVER_ERROR` | The server could not process the request. |
+
+### `LAUNCH_GAME` (`37`)
+
+Empty payload. Only the room master may send it.
+
+### `GAME_STARTED` (`38`)
+
+```text
+u16  room_id
+```
+
+### `LEAVE_ROOM` (`39`) and `ROOM_LEFT` (`40`)
+
+Empty payloads. `ROOM_LEFT` is followed by a fresh `ROOM_LIST`.
+
+### `ROOM_LIST_REQUEST` (`41`)
+
+Empty payload. The server replies with `ROOM_LIST`.
 
 ## Failure handling
 
@@ -473,7 +596,10 @@ Current player ID range limits a session to four players. A server advertising m
 | Control connection closes | Immediately exclude the registration; retain or remove the stale record per registry policy. |
 | Server is `DRAINING` | Let existing sessions finish; reject new players; exclude from discovery. |
 | Selected server is full or rejects the handshake | Close the attempt, refresh discovery, allow another selection. |
-| Gameplay TCP connection closes | Remove the player, forget its UDP endpoint, clear its input state. |
+| Gameplay TCP connection closes | Remove the player from its room, forget its UDP endpoint, clear its input state; promote a new room master if needed. |
+| Room is full, in game, or missing | `ROOM_REJECTED`; the client stays in the room list and may choose another room. |
+| Room master disconnects | The next player in join order becomes master; remaining members receive `ROOM_STATE`. |
+| Active room becomes empty | The simulation pauses; the next launch resets it. |
 | UDP packet lost, duplicated, or malformed | Discard it and use the next valid packet; do not end the session for one bad datagram. |
 | Master unavailable | Existing gameplay continues; discovery and registration reconnect with backoff. |
 | Master restarts | Registry starts empty; servers reconnect and register again. |

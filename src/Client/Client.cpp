@@ -2,8 +2,9 @@
 
 CClient::CClient(const std::string& serverAddress) :
     mLogicThread(mSceneData, mPlayerActions, mtex, mRunning, mStopCondition),
-    mDrawThread(mSceneData, mPlayerActions, mtex, mRunning, mStopCondition),
-    mNetworkThread(mIo, mSceneData, mPlayerActions, mtex, mRunning, mStopCondition, serverAddress) {
+    mDrawThread(mSceneData, mPlayerActions, mtex, mRunning, mStopCondition, mLobbyState, mLobbyCommands),
+    mNetworkThread(mIo, mSceneData, mPlayerActions, mtex, mRunning, mStopCondition, serverAddress,
+                   mLobbyState, mLobbyCommands) {
     start();
 }
 
