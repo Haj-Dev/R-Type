@@ -7,7 +7,7 @@
 
 #include "Shared/SceneData.hpp"
 #include "Shared/PlayerActions.hpp"
-#include "Client/Systems/RenderSystem.hpp"
+#include "Shared/Systems/RenderSystem.hpp"
 
 class CDrawThread {
   public:

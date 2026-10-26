@@ -72,3 +72,6 @@ Testing/
 # Project specific
 R-Type
 .devenv
+
+# runners
+actions-runner

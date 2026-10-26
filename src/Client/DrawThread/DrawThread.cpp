@@ -25,12 +25,12 @@ void CDrawThread::join() {
 
 void CDrawThread::run() {
     SetTraceLogLevel(LOG_WARNING);
-    InitWindow(1280, 720, "R-Type");
-    SetTargetFPS(60);
+    mRenderSystem.initWindow(1280, 720, "R-Type");
+    mRenderSystem.setTargetFps(60);
     mRenderSystem.loadTextures(mSceneData.renderRegistry);
 
     while (mRunning.load()) {
-        if (WindowShouldClose()) {
+        if (mRenderSystem.windowShouldClose()) {
             mRunning.store(false);
             mStopCondition.notify_all();
             break;
@@ -52,8 +52,8 @@ void CDrawThread::run() {
                 .fire  = IsKeyDown(KEY_SPACE),
             };
         }
-        BeginDrawing();
-        ClearBackground(Color{.r = 8, .g = 12, .b = 30, .a = 255});
+        std::vector<unsigned char> clearColor = {8, 12, 30, 255};
+        mRenderSystem.clear(clearColor);
         {
             std::scoped_lock lock(mtex);
             for (int x = 0; x < 1280; x += 80)
@@ -62,8 +62,9 @@ void CDrawThread::run() {
             mRenderSystem.loadTextures(mSceneData.renderRegistry);
             mRenderSystem.draw(mSceneData.renderRegistry);
         }
-        DrawText("Arrow keys: move   Space: fire", 20, 20, 20, RAYWHITE);
-        EndDrawing();
+        std::vector<unsigned char> white = {RAYWHITE.r, RAYWHITE.g, RAYWHITE.b, RAYWHITE.a};
+        mRenderSystem.drawText(std::string("Arrow keys: move   Space: fire"), 20, 20, 20, white);
+        mRenderSystem.endFrame();
     }
-    CloseWindow();
+    mRenderSystem.closeWindow();
 }
