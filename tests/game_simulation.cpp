@@ -162,3 +162,55 @@ TEST(GameSimulation, ProjectileCanDestroyEnemy) {
                             [](const auto& entity) { return entity.kind == Game::eEntityKind::ENEMY; }),
               0);
 }
+
+
+TEST(PlayerManagement, DeadPlayerCannotMoveOrFireAndRespawnsWithFullHealth) {
+    Ecs::CRegistry registry;
+    Game::CPlayerSystem playerSystem;
+    SPLayerActions actions;
+    actions.connected.at(0) = true;
+    playerSystem.synchronizeConnectedPlayers(registry, actions);
+
+    registry.each<SCPlayer, SCHealth>([](Ecs::SEntity, SCPlayer&, SCHealth& health) {
+        health.value = 0;
+    });
+
+    actions.states.at(0).right = true;
+    actions.states.at(0).fire = true;
+    playerSystem.update(registry, actions, 0.1F);
+
+    registry.each<SCPlayer, SCPosition, SCHealth>(
+        [](Ecs::SEntity, SCPlayer&, SCPosition& position, SCHealth& health) {
+            EXPECT_FLOAT_EQ(position.x, Game::PlayerSpawnX);
+            EXPECT_EQ(health.value, 0);
+        });
+
+    playerSystem.update(registry, actions, Game::RespawnDelay - 0.2F);
+    registry.each<SCPlayer, SCHealth>([](Ecs::SEntity, SCPlayer&, SCHealth& health) {
+        EXPECT_EQ(health.value, 0);
+    });
+
+    playerSystem.update(registry, actions, 0.2F);
+    registry.each<SCPlayer, SCPosition, SCHealth>(
+        [](Ecs::SEntity, SCPlayer&, SCPosition& position, SCHealth& health) {
+            EXPECT_EQ(health.value, Game::PlayerStartingHealth);
+            EXPECT_FLOAT_EQ(position.x, Game::PlayerSpawnX);
+            EXPECT_FLOAT_EQ(position.y, Game::PlayerSpawnY);
+        });
+}
+
+TEST(PlayerManagement, RespawnGrantsTemporaryInvulnerability) {
+    Ecs::CRegistry registry;
+    Game::CPlayerSystem playerSystem;
+    SPLayerActions actions;
+    actions.connected.at(0) = true;
+    playerSystem.synchronizeConnectedPlayers(registry, actions);
+
+    registry.each<SCHealth>([](Ecs::SEntity, SCHealth& health) { health.value = 0; });
+    playerSystem.update(registry, actions, Game::RespawnDelay + 0.1F);
+
+    registry.each<SCPlayer>([](Ecs::SEntity, SCPlayer& player) {
+        EXPECT_FLOAT_EQ(player.damageCooldown, Game::RespawnInvulnerability);
+        EXPECT_FLOAT_EQ(player.respawnCooldown, -1.0F);
+    });
+}

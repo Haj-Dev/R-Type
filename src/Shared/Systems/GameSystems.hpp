@@ -44,9 +44,22 @@ namespace Game {
             std::vector<SPlayerSpawn> projectiles;
             registry.each<SCPosition, SCPlayer>(
                 [&](Ecs::SEntity entity, SCPosition& position, SCPlayer& player) {
-                    const auto* health = registry.get<SCHealth>(entity);
-                    if (health != nullptr && health->value <= 0)
+                    auto* health = registry.get<SCHealth>(entity);
+                    if (health != nullptr && health->value <= 0) {
+                        if (player.respawnCooldown < 0.0F)
+                            player.respawnCooldown = RespawnDelay;
+                        player.respawnCooldown = std::max(0.0F, player.respawnCooldown - delta);
+                        if (player.respawnCooldown <= 0.0F) {
+                            health->value = PlayerStartingHealth;
+                            position.x = PlayerSpawnX;
+                            position.y = PlayerSpawnY +
+                                (static_cast<float>(player.id) * PlayerSpawnSpacing);
+                            player.fireCooldown = 0.0F;
+                            player.damageCooldown = RespawnInvulnerability;
+                            player.respawnCooldown = -1.0F;
+                        }
                         return;
+                    }
                     player.fireCooldown   = std::max(0.0F, player.fireCooldown - delta);
                     player.damageCooldown = std::max(0.0F, player.damageCooldown - delta);
                     const auto action     = actions.forPlayer(player.id);
@@ -93,8 +106,8 @@ namespace Game {
 
         static void spawnPlayer(Ecs::CRegistry& registry, std::uint8_t id) {
             const auto entity = registry.create();
-            registry.emplace<SCPosition>(entity,
-                                         SCPosition{100.0F, 180.0F + (static_cast<float>(id) * 120.0F)});
+            registry.emplace<SCPosition>(
+                entity, SCPosition{PlayerSpawnX, PlayerSpawnY + (static_cast<float>(id) * PlayerSpawnSpacing)});
             registry.emplace<SCVelocity>(entity);
             registry.emplace<SCHealth>(entity, SCHealth{3});
             registry.emplace<SCCollider>(entity, SCCollider{18.0F});

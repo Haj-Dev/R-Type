@@ -11,4 +11,5 @@ struct SCPlayer : AComponent {
     std::uint8_t id             = 0;
     float        fireCooldown   = 0.0F;
     float        damageCooldown = 0.0F;
+    float        respawnCooldown = -1.0F;
 };

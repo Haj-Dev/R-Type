@@ -63,8 +63,8 @@ rm -rf build
 Start the server, then run a client and pass the server IP:
 
 ```bash
-./build/R-Type_server
-./build/R-Type_client 127.0.0.1
+./build/r-type_server
+./build/r-type_client 127.0.0.1
 ```
 
 On Windows the executables are produced under `build/` with a `Release` or `Debug` configuration subfolder depending on the generator/IDE; adjust the paths accordingly (for example `build/R-Type_client.exe` or `build/Release/R-Type_client.exe`).

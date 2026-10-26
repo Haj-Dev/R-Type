@@ -13,7 +13,13 @@ namespace Game {
     inline constexpr float WorldHeight     = 720.0F;
     inline constexpr float PlayerSpeed     = 260.0F;
     inline constexpr float ProjectileSpeed = 520.0F;
-    inline constexpr float FireInterval    = 0.2F;
+    inline constexpr float FireInterval             = 0.2F;
+    inline constexpr std::int16_t PlayerStartingHealth = 3;
+    inline constexpr float PlayerSpawnX               = 100.0F;
+    inline constexpr float PlayerSpawnY               = 180.0F;
+    inline constexpr float PlayerSpawnSpacing         = 120.0F;
+    inline constexpr float RespawnDelay               = 3.0F;
+    inline constexpr float RespawnInvulnerability     = 1.5F;
 
     struct SSnapshotEntity {
         std::uint32_t id       = 0;
