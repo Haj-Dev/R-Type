@@ -2,6 +2,7 @@
 
 #include "DrawableSprite.hpp"
 #include "Shared/Dimentions.hpp"
+#include "Serialization.hpp"
 
 #include <cstddef>
 #include <cmath>
@@ -9,16 +10,44 @@
 #include <utility>
 
 struct SCDrawableSpriteAtlas : SCDrawableSprite {
+  public:
     SCDrawableSpriteAtlas() = default;
     explicit SCDrawableSpriteAtlas(std::string drawableTexture, SDimentions drawableBaseDimension,
                                    std::size_t drawableFrames = 1U, float drawableFrameDuration = 0.0F,
-                                   std::size_t drawableVariant = 0U, int drawableLayer = 0,
+                                   std::size_t drawableVariant = 0U, std::int8_t drawableLayer = 0,
                                    float drawableScale = 1.0F, SCPosition drawableOffset = {},
                                    float drawableRotation = 0.0F) :
         SCDrawableSprite(std::move(drawableTexture), drawableLayer, drawableScale,
                          std::move(drawableOffset), drawableRotation),
         baseDimension(drawableBaseDimension), frames(drawableFrames),
         frameDuration(drawableFrameDuration), variant(drawableVariant) {}
+    explicit SCDrawableSpriteAtlas(const std::vector<std::uint8_t>& data) : SCDrawableSprite() {
+        Components::CReader reader(data);
+        if (!reader.readString(texture) || !reader.read(layer) || !reader.read(scale) ||
+            !reader.read(offset.x) || !reader.read(offset.y) || !reader.read(rotation) ||
+            !reader.read(baseDimension.width) || !reader.read(baseDimension.height) ||
+            !reader.read(frames) || !reader.read(frameDuration) || !reader.read(variant) ||
+            !reader.finished())
+            setInvalid();
+    }
+
+    [[nodiscard]] eType type() const override {
+        return eType::DRAWABLE_SPRITE_ATLAS;
+    }
+    void serialize(std::vector<std::uint8_t>& data) const override {
+        Components::append(data, type());
+        Components::appendString(data, texture);
+        Components::append(data, layer);
+        Components::append(data, scale);
+        Components::append(data, offset.x);
+        Components::append(data, offset.y);
+        Components::append(data, rotation);
+        Components::append(data, baseDimension.width);
+        Components::append(data, baseDimension.height);
+        Components::append(data, frames);
+        Components::append(data, frameDuration);
+        Components::append(data, variant);
+    }
 
     SDimentions baseDimension{};
     std::size_t frames        = 1U;
