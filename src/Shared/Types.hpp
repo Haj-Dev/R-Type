@@ -128,8 +128,8 @@ namespace Net {
 
     inline bool validPacket(const std::uint8_t* data, std::size_t size, ePacketType expected) {
         const std::vector<std::uint8_t> bytes(data, data + size);
-        return size >= HeaderSize + sizeof(Terminator) &&
-            bytes.at(0) == Magic.at(0) && bytes.at(1) == Magic.at(1) && bytes.at(2) == Magic.at(2) &&
+        return size >= HeaderSize + sizeof(Terminator) && bytes.at(0) == Magic.at(0) &&
+            bytes.at(1) == Magic.at(1) && bytes.at(2) == Magic.at(2) &&
             bytes.at(3) == static_cast<std::uint8_t>(expected) && bytes.at(size - 2) == 0x0D &&
             bytes.at(size - 1) == 0x0A;
     }
@@ -142,11 +142,11 @@ namespace Net {
         const std::vector<std::uint8_t> bytes(data, data + size);
         const auto flags = static_cast<std::uint32_t>(bytes.at(HeaderSize + CommandHeaderSize));
         action           = SPlayerActionState{
-            .up    = (flags & 1U) != 0,
-            .down  = (flags & 2U) != 0,
-            .left  = (flags & 4U) != 0,
-            .right = (flags & 8U) != 0,
-            .fire  = (flags & 16U) != 0,
+                      .up    = (flags & 1U) != 0,
+                      .down  = (flags & 2U) != 0,
+                      .left  = (flags & 4U) != 0,
+                      .right = (flags & 8U) != 0,
+                      .fire  = (flags & 16U) != 0,
         };
         return true;
     }
@@ -207,8 +207,8 @@ namespace Net {
         return packet;
     }
 
-    inline std::vector<std::uint8_t> makeUpdate(
-        std::uint64_t tick, const std::vector<Game::SUpdateEntity>& updates) {
+    inline std::vector<std::uint8_t> makeUpdate(std::uint64_t                           tick,
+                                                const std::vector<Game::SUpdateEntity>& updates) {
         auto packet = beginPacket(ePacketType::UPDATE);
         appendTick(packet, tick);
         for (const auto& update : updates) {
@@ -307,8 +307,7 @@ namespace Net {
     }
 
     inline bool readSnapshot(const std::uint8_t* data, std::size_t size,
-                             std::vector<Game::SSnapshotEntity>& entities,
-                             std::uint64_t& tick) {
+                             std::vector<Game::SSnapshotEntity>& entities, std::uint64_t& tick) {
         if (!validPacket(data, size, ePacketType::SNAPSHOT))
             return false;
         if (size < HeaderSize + TickSize + sizeof(Terminator))

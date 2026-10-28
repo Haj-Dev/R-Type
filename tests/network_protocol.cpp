@@ -166,11 +166,11 @@ TEST(NetworkProtocol, SnapshotEncodesEntityFields) {
     entity.variant       = 2U;
     scene.entities.push_back(entity);
 
-    scene.tick = 123;
+    scene.tick        = 123;
     const auto packet = Net::makeSnapshot(scene);
     ASSERT_TRUE(Net::validPacket(packet.data(), packet.size(), Net::ePacketType::SNAPSHOT));
     std::vector<Game::SSnapshotEntity> decoded;
-    std::uint64_t tick = 0;
+    std::uint64_t                      tick = 0;
     ASSERT_TRUE(Net::readSnapshot(packet.data(), packet.size(), decoded, tick));
     EXPECT_EQ(tick, 123U);
     ASSERT_EQ(decoded.size(), 1U);
@@ -241,7 +241,7 @@ TEST(NetworkProtocol, UpdateRoundTripsPartialComponentsAndRemoval) {
     const auto packet = Net::makeUpdate(456, updates);
     ASSERT_TRUE(Net::validPacket(packet.data(), packet.size(), Net::ePacketType::UPDATE));
     std::vector<Game::SUpdateEntity> decoded;
-    std::uint64_t tick = 0;
+    std::uint64_t                    tick = 0;
     ASSERT_TRUE(Net::readUpdate(packet.data(), packet.size(), decoded, tick));
     EXPECT_EQ(tick, 456U);
     ASSERT_EQ(decoded.size(), 2U);

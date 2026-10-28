@@ -36,8 +36,8 @@ namespace Game {
     };
 
     struct SUpdateEntity {
-        std::uint32_t                         id = 0;
-        bool                                  remove = false;
+        std::uint32_t                          id     = 0;
+        bool                                   remove = false;
         std::vector<std::vector<std::uint8_t>> components;
     };
 

@@ -57,6 +57,6 @@ class CNetworkThread {
     std::atomic_bool             mConnected = false;
     std::vector<std::uint8_t>    mTcpBuffer;
     std::uint64_t                mLastReceivedTick = 0;
-    bool                         mHasReceivedTick = false;
-    bool                         mInGame = false;
+    bool                         mHasReceivedTick  = false;
+    bool                         mInGame           = false;
 };
