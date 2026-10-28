@@ -1,6 +1,7 @@
 #include "NetworkThread.hpp"
 
 #include "Shared/FixedRate.hpp"
+#include "NetworkPolicy.hpp"
 #include "Shared/Types.hpp"
 
 #include <algorithm>
@@ -33,7 +34,7 @@ void CServerNetworkThread::join() {
 }
 
 void CServerNetworkThread::run() {
-    constexpr auto                       networkInterval = std::chrono::nanoseconds(1'000'000'000 / 120);
+    constexpr auto                       networkInterval = std::chrono::nanoseconds(1'000'000'000 / 60);
 
     const Timing::CScopedTimerResolution timerResolution;
     Timing::CFixedRate                   networkRate(networkInterval);
@@ -149,15 +150,53 @@ void CServerNetworkThread::run() {
 
         const auto activeRoom = mRoomManager.activeRoom();
         if (activeRoom) {
-            std::vector<std::uint8_t> snapshot;
+            std::vector<std::uint8_t> packet;
             {
                 std::scoped_lock lock(mtex);
-                snapshot = Net::makeSnapshot(mSceneData);
+                const auto       tick = mSceneData.tick;
+                if (mHasSentTick && tick == mLastSentTick) {
+                    packet.clear();
+                } else if ((tick + SNAPSHOT_POLICY.offset) % SNAPSHOT_POLICY.interval == 0) {
+                    packet = Net::makeSnapshot(mSceneData);
+                } else {
+                    std::vector<Game::SUpdateEntity> updates;
+                    for (const auto& entity : mSceneData.entities) {
+                        Game::SUpdateEntity update{
+                            .id         = entity.id,
+                            .remove     = false,
+                            .components = {},
+                        };
+                        const auto addComponent = [&update](const AComponent& component) {
+                            std::vector<std::uint8_t> bytes;
+                            component.serialize(bytes);
+                            update.components.push_back(std::move(bytes));
+                        };
+                        for (const auto& [type, config] : COMPONENT_UPDATE_INTERVALS) {
+                            if ((tick + config.offset) % config.interval != 0)
+                                continue;
+                            if (type == AComponent::eType::POSITION)
+                                addComponent(SCPosition{entity.x, entity.y});
+                            else if (type == AComponent::eType::HEALTH)
+                                addComponent(SCHealth{entity.health});
+                        }
+                        if (!update.components.empty())
+                            updates.push_back(std::move(update));
+                    }
+                    packet = Net::makeUpdate(tick, updates);
+                }
+                if (!packet.empty()) {
+                    mLastSentTick = tick;
+                    mHasSentTick  = true;
+                }
             }
-            for (const auto playerId : mRoomManager.playersInRoom(*activeRoom)) {
-                if (playerId < mClients.size() && !mClients.at(playerId).address().is_unspecified())
-                    mSocket.send_to(asio::buffer(snapshot), mClients.at(playerId));
+            if (!packet.empty()) {
+                for (const auto playerId : mRoomManager.playersInRoom(*activeRoom)) {
+                    if (playerId < mClients.size() && !mClients.at(playerId).address().is_unspecified())
+                        mSocket.send_to(asio::buffer(packet), mClients.at(playerId));
+                }
             }
+        } else {
+            mHasSentTick = false;
         }
 
         std::unique_lock lock(mtex);

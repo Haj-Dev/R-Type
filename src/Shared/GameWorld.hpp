@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <string>
+#include <vector>
 
 namespace Game {
 
@@ -32,6 +33,12 @@ namespace Game {
         std::size_t   frames        = 1U;
         float         frameDuration = 0.0F;
         std::size_t   variant       = 0U;
+    };
+
+    struct SUpdateEntity {
+        std::uint32_t                          id     = 0;
+        bool                                   remove = false;
+        std::vector<std::vector<std::uint8_t>> components;
     };
 
 } // namespace Game

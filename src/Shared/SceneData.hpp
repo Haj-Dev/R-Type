@@ -4,6 +4,7 @@
 #include "Shared/Components/DrawableShape.hpp"
 #include "Shared/Components/DrawableSprite.hpp"
 #include "Shared/Components/DrawableSpriteAtlas.hpp"
+#include "Shared/Components/ComponentRegistry.hpp"
 #include "Shared/Components/EntityType.hpp"
 #include "Shared/Components/Health.hpp"
 #include "Shared/Components/Position.hpp"
@@ -45,8 +46,75 @@ struct SSceneData {
         rebuildRenderRegistry(animationStates);
     }
 
+    bool applyUpdates(const std::vector<Game::SUpdateEntity>& updates) {
+        CComponentRegistry registry;
+        auto               nextEntities = entities;
+        for (const auto& update : updates) {
+            if (!update.remove) {
+                for (const auto& bytes : update.components) {
+                    if (!registry.deserialize(bytes))
+                        return false;
+                }
+            }
+        }
+        for (const auto& update : updates) {
+            const auto it = std::ranges::find_if(
+                nextEntities, [&update](const auto& entity) { return entity.id == update.id; });
+            if (update.remove) {
+                if (it != nextEntities.end())
+                    nextEntities.erase(it);
+                continue;
+            }
+            auto entity = it == nextEntities.end() ? Game::SSnapshotEntity{} : *it;
+            entity.id   = update.id;
+            for (const auto& bytes : update.components)
+                applyComponent(entity, *registry.deserialize(bytes));
+            if (it == nextEntities.end())
+                nextEntities.push_back(std::move(entity));
+            else
+                *it = std::move(entity);
+        }
+        replaceEntities(std::move(nextEntities));
+        return true;
+    }
+
   private:
     using SAnimationState = std::pair<std::size_t, float>;
+
+    static void applyComponent(Game::SSnapshotEntity& entity, const AComponent& component) {
+        if (const auto* position = dynamic_cast<const SCPosition*>(&component)) {
+            entity.x = position->x;
+            entity.y = position->y;
+        } else if (const auto* type = dynamic_cast<const SCEntityType*>(&component)) {
+            entity.kind = type->value;
+        } else if (const auto* health = dynamic_cast<const SCHealth*>(&component)) {
+            entity.health = health->value;
+        } else if (const auto* shape = dynamic_cast<const SCDrawableShape*>(&component)) {
+            entity.texture.clear();
+            entity.atlas = false;
+            entity.layer = shape->layer;
+        } else if (const auto* atlas = dynamic_cast<const SCDrawableSpriteAtlas*>(&component)) {
+            entity.texture       = atlas->texture;
+            entity.layer         = atlas->layer;
+            entity.scale         = atlas->scale;
+            entity.offsetX       = atlas->offset.x;
+            entity.offsetY       = atlas->offset.y;
+            entity.rotation      = atlas->rotation;
+            entity.atlas         = true;
+            entity.baseDimension = atlas->baseDimension;
+            entity.frames        = atlas->frames;
+            entity.frameDuration = atlas->frameDuration;
+            entity.variant       = atlas->variant;
+        } else if (const auto* sprite = dynamic_cast<const SCDrawableSprite*>(&component)) {
+            entity.texture  = sprite->texture;
+            entity.layer    = sprite->layer;
+            entity.scale    = sprite->scale;
+            entity.offsetX  = sprite->offset.x;
+            entity.offsetY  = sprite->offset.y;
+            entity.rotation = sprite->rotation;
+            entity.atlas    = false;
+        }
+    }
 
     [[nodiscard]] std::unordered_map<std::uint32_t, SAnimationState> captureAnimationStates() const {
         std::unordered_map<std::uint32_t, SAnimationState> states;
