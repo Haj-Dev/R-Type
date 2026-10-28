@@ -166,10 +166,13 @@ TEST(NetworkProtocol, SnapshotEncodesEntityFields) {
     entity.variant       = 2U;
     scene.entities.push_back(entity);
 
+    scene.tick = 123;
     const auto packet = Net::makeSnapshot(scene);
     ASSERT_TRUE(Net::validPacket(packet.data(), packet.size(), Net::ePacketType::SNAPSHOT));
     std::vector<Game::SSnapshotEntity> decoded;
-    ASSERT_TRUE(Net::readSnapshot(packet.data(), packet.size(), decoded));
+    std::uint64_t tick = 0;
+    ASSERT_TRUE(Net::readSnapshot(packet.data(), packet.size(), decoded, tick));
+    EXPECT_EQ(tick, 123U);
     ASSERT_EQ(decoded.size(), 1U);
     EXPECT_EQ(decoded.front().id, 42U);
     EXPECT_EQ(decoded.front().kind, Game::eEntityKind::PLAYER);
@@ -225,6 +228,38 @@ TEST(NetworkProtocol, SnapshotRoundTripsBeyondLegacyReceiveBuffers) {
     ASSERT_TRUE(Net::readSnapshot(packet.data(), packet.size(), decoded));
     ASSERT_EQ(decoded.size(), 1U);
     EXPECT_EQ(decoded.front().texture, scene.entities.front().texture);
+}
+
+TEST(NetworkProtocol, UpdateRoundTripsPartialComponentsAndRemoval) {
+    std::vector<std::uint8_t> position;
+    SCPosition{12.5F, 42.0F}.serialize(position);
+    const std::vector<Game::SUpdateEntity> updates{
+        Game::SUpdateEntity{.id = 7, .components = {position}},
+        Game::SUpdateEntity{.id = 9, .remove = true},
+    };
+
+    const auto packet = Net::makeUpdate(456, updates);
+    ASSERT_TRUE(Net::validPacket(packet.data(), packet.size(), Net::ePacketType::UPDATE));
+    std::vector<Game::SUpdateEntity> decoded;
+    std::uint64_t tick = 0;
+    ASSERT_TRUE(Net::readUpdate(packet.data(), packet.size(), decoded, tick));
+    EXPECT_EQ(tick, 456U);
+    ASSERT_EQ(decoded.size(), 2U);
+    ASSERT_EQ(decoded.at(0).components.size(), 1U);
+    EXPECT_EQ(decoded.at(0).id, 7U);
+    EXPECT_EQ(decoded.at(0).components.front(), position);
+    EXPECT_EQ(decoded.at(1).id, 9U);
+    EXPECT_TRUE(decoded.at(1).remove);
+}
+
+TEST(NetworkProtocol, UpdateRejectsTruncatedComponentPayload) {
+    std::vector<std::uint8_t> position;
+    SCPosition{12.5F, 42.0F}.serialize(position);
+    auto packet = Net::makeUpdate({Game::SUpdateEntity{.id = 7, .components = {position}}});
+    packet.erase(packet.end() - 3);
+
+    std::vector<Game::SUpdateEntity> decoded;
+    EXPECT_FALSE(Net::readUpdate(packet.data(), packet.size(), decoded));
 }
 
 TEST(ComponentSerialization, RegistryRoundTripsPosition) {
@@ -286,4 +321,26 @@ TEST(SceneData, SnapshotProjectionKeepsProjectileWithoutHealthComponent) {
             EXPECT_EQ(type.value, Game::eEntityKind::PLAYER_PROJECTILE);
             EXPECT_EQ(scene.renderRegistry.get<SCHealth>(entity), nullptr);
         });
+}
+
+TEST(SceneData, UpdatesMergeComponentsAndRemoveEntities) {
+    SSceneData scene;
+    scene.replaceEntities({
+        Game::SSnapshotEntity{.id = 7, .x = 1.0F, .y = 2.0F, .health = 5},
+        Game::SSnapshotEntity{.id = 9, .x = 3.0F},
+    });
+    std::vector<std::uint8_t> position;
+    SCPosition{12.5F, 42.0F}.serialize(position);
+    std::vector<std::uint8_t> health;
+    SCHealth{2}.serialize(health);
+
+    ASSERT_TRUE(scene.applyUpdates({
+        Game::SUpdateEntity{.id = 7, .components = {position, health}},
+        Game::SUpdateEntity{.id = 9, .remove = true},
+    }));
+    ASSERT_EQ(scene.entities.size(), 1U);
+    EXPECT_EQ(scene.entities.front().id, 7U);
+    EXPECT_FLOAT_EQ(scene.entities.front().x, 12.5F);
+    EXPECT_FLOAT_EQ(scene.entities.front().y, 42.0F);
+    EXPECT_EQ(scene.entities.front().health, 2);
 }

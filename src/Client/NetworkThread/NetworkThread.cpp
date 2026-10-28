@@ -267,13 +267,29 @@ void CNetworkThread::receiveSnapshots(std::vector<std::uint8_t>& buffer) {
             break;
         if (error)
             break;
-        if (!Net::validPacket(buffer.data(), size, Net::ePacketType::SNAPSHOT))
-            continue;
-        std::vector<Game::SSnapshotEntity> entities;
-        if (!Net::readSnapshot(buffer.data(), size, entities))
-            continue;
-        std::scoped_lock lock(mtex);
-        mSceneData.replaceEntities(std::move(entities));
-        ++mSceneData.tick;
+        if (Net::validPacket(buffer.data(), size, Net::ePacketType::SNAPSHOT)) {
+            std::vector<Game::SSnapshotEntity> entities;
+            std::uint64_t                      tick = 0;
+            if (!Net::readSnapshot(buffer.data(), size, entities, tick) ||
+                (mHasReceivedTick && tick < mLastReceivedTick))
+                continue;
+            std::scoped_lock lock(mtex);
+            mSceneData.replaceEntities(std::move(entities));
+            mSceneData.tick   = tick;
+            mLastReceivedTick = tick;
+            mHasReceivedTick  = true;
+        } else if (Net::validPacket(buffer.data(), size, Net::ePacketType::UPDATE)) {
+            std::vector<Game::SUpdateEntity> updates;
+            std::uint64_t                    tick = 0;
+            if (!Net::readUpdate(buffer.data(), size, updates, tick) ||
+                (mHasReceivedTick && tick < mLastReceivedTick))
+                continue;
+            std::scoped_lock lock(mtex);
+            if (mSceneData.applyUpdates(updates)) {
+                mSceneData.tick   = tick;
+                mLastReceivedTick = tick;
+                mHasReceivedTick  = true;
+            }
+        }
     }
 }

@@ -57,6 +57,8 @@ class CServerNetworkThread {
     std::vector<asio::ip::udp::endpoint>                              mClients;
     std::array<std::vector<std::uint8_t>, SPLayerActions::MaxPlayers> mTcpBuffers;
     CRoomManager                                                      mRoomManager;
+    std::uint64_t                                                     mLastSentTick = 0;
+    bool                                                               mHasSentTick = false;
 
     struct SPendingHandshake {
         asio::ip::tcp::socket                        socket;
