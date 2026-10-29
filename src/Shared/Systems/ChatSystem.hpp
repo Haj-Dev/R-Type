@@ -26,11 +26,13 @@ namespace Chat {
         // Messages ordered from the oldest to the newest.
         [[nodiscard]] std::vector<const SCChatMessage*> history(Ecs::CRegistry& registry) const {
             std::vector<const SCChatMessage*> messages;
-            registry.each<SCChatMessage>(
-                [&messages](Ecs::SEntity, const SCChatMessage& message) { messages.push_back(&message); });
-            std::ranges::stable_sort(messages, [](const SCChatMessage* left, const SCChatMessage* right) {
-                return left->sequence < right->sequence;
+            registry.each<SCChatMessage>([&messages](Ecs::SEntity, const SCChatMessage& message) {
+                messages.push_back(&message);
             });
+            std::ranges::stable_sort(messages,
+                                     [](const SCChatMessage* left, const SCChatMessage* right) {
+                                         return left->sequence < right->sequence;
+                                     });
             return messages;
         }
 
@@ -69,8 +71,9 @@ namespace Chat {
             });
             if (entries.size() <= MaxHistory)
                 return;
-            std::ranges::stable_sort(
-                entries, [](const SEntry& left, const SEntry& right) { return left.sequence < right.sequence; });
+            std::ranges::stable_sort(entries, [](const SEntry& left, const SEntry& right) {
+                return left.sequence < right.sequence;
+            });
             const auto excess = entries.size() - MaxHistory;
             for (std::size_t index = 0; index < excess; ++index)
                 registry.destroy(entries.at(index).entity);

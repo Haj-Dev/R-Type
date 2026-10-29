@@ -62,7 +62,6 @@ namespace Room {
         std::vector<SPlayer> players;
     };
 
-
     inline SResult success() {
         return SResult{.ok = true, .reason = eRejectReason::SERVER_ERROR, .message = {}};
     }

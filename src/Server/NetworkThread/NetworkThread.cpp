@@ -336,9 +336,10 @@ void CServerNetworkThread::handleLobbyCommand(std::uint8_t playerId, Net::eLobby
                 sendRejection(playerId, Room::eRejectReason::NOT_IN_ROOM, "Join a room to chat");
                 return;
             }
-            broadcastRoom(*roomId, Net::makeChatMessage(SCChatMessage{
-                                       ++mChatSequence, playerId, mRoomManager.playerName(playerId),
-                                       std::move(message.text)}));
+            broadcastRoom(*roomId,
+                          Net::makeChatMessage(SCChatMessage{++mChatSequence, playerId,
+                                                             mRoomManager.playerName(playerId),
+                                                             std::move(message.text)}));
             return;
         }
         default:

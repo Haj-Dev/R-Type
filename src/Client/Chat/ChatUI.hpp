@@ -15,8 +15,7 @@
 // input or a click elsewhere releases the focus.
 class CChatUI {
   public:
-    void               draw(IRenderSystem& renderer, Lobby::SLobbyState& state,
-                            std::deque<Lobby::SCommand>& commands);
+    void draw(IRenderSystem& renderer, Lobby::SLobbyState& state, std::deque<Lobby::SCommand>& commands);
 
     // True while the chat input captures the keyboard (gameplay keys must be ignored).
     [[nodiscard]] bool typing(Lobby::SLobbyState& state) const {
@@ -24,7 +23,7 @@ class CChatUI {
     }
 
   private:
-    void handleTyping(SCChatInput& input, std::deque<Lobby::SCommand>& commands) const;
+    void              handleTyping(SCChatInput& input, std::deque<Lobby::SCommand>& commands) const;
 
     Chat::CChatSystem mChatSystem;
 };

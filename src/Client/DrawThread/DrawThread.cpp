@@ -58,7 +58,7 @@ void CDrawThread::run() {
                         break;
                     }
                 }
-                const bool typing = mChatUI.typing(mLobbyState);
+                const bool typing                  = mChatUI.typing(mLobbyState);
                 mPlayerActions.states.at(playerId) = SPlayerActionState{
                     .up    = !typing && IsKeyDown(KEY_UP),
                     .down  = !typing && IsKeyDown(KEY_DOWN),

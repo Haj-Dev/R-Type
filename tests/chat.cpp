@@ -31,7 +31,7 @@ TEST(ChatComponent, RejectsTruncatedAndOversizedData) {
     SCChatMessage{1, 0, "Bob", "hi"}.serialize(bytes);
     const CComponentRegistry registry;
 
-    auto truncated = bytes;
+    auto                     truncated = bytes;
     truncated.pop_back();
     EXPECT_EQ(registry.deserialize(truncated), nullptr);
 
@@ -45,7 +45,7 @@ TEST(ChatComponent, RejectsTruncatedAndOversizedData) {
 }
 
 TEST(ChatSystem, StoresMessagesAsEntitiesInOrder) {
-    Ecs::CRegistry     registry;
+    Ecs::CRegistry          registry;
     const Chat::CChatSystem system;
     system.post(registry, SCChatMessage{2, 0, "Bob", "second"});
     system.post(registry, SCChatMessage{1, 1, "Ann", "first"});
@@ -58,7 +58,7 @@ TEST(ChatSystem, StoresMessagesAsEntitiesInOrder) {
 }
 
 TEST(ChatSystem, DropsOldestMessagesBeyondHistoryLimit) {
-    Ecs::CRegistry     registry;
+    Ecs::CRegistry          registry;
     const Chat::CChatSystem system;
     for (std::uint32_t sequence = 1; sequence <= Chat::MaxHistory + 5; ++sequence)
         system.post(registry, SCChatMessage{sequence, 0, "Bob", std::to_string(sequence)});
@@ -70,7 +70,7 @@ TEST(ChatSystem, DropsOldestMessagesBeyondHistoryLimit) {
 }
 
 TEST(ChatSystem, ClearingMessagesKeepsTypingState) {
-    Ecs::CRegistry     registry;
+    Ecs::CRegistry          registry;
     const Chat::CChatSystem system;
     EXPECT_FALSE(system.typing(registry));
 

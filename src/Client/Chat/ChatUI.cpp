@@ -10,17 +10,17 @@
 
 namespace {
 
-    constexpr int    ScreenWidth      = 1280;
-    constexpr int    ScreenHeight     = 720;
-    constexpr int    Margin           = 10;
-    constexpr int    PanelWidth       = 360;
-    constexpr int    InputHeight      = 30;
-    constexpr int    Padding          = 8;
-    constexpr int    FontSize         = 16;
-    constexpr int    LineHeight       = 20;
-    constexpr int    VisibleLines     = 10;
-    constexpr int    LogHeight        = (VisibleLines * LineHeight) + (2 * Padding);
-    constexpr int    PanelGap         = 4;
+    constexpr int    ScreenWidth  = 1280;
+    constexpr int    ScreenHeight = 720;
+    constexpr int    Margin       = 10;
+    constexpr int    PanelWidth   = 360;
+    constexpr int    InputHeight  = 30;
+    constexpr int    Padding      = 8;
+    constexpr int    FontSize     = 16;
+    constexpr int    LineHeight   = 20;
+    constexpr int    VisibleLines = 10;
+    constexpr int    LogHeight    = (VisibleLines * LineHeight) + (2 * Padding);
+    constexpr int    PanelGap     = 4;
 
     constexpr SColor White{.r = 255, .g = 255, .b = 255, .a = 255};
     constexpr SColor Gray{.r = 130, .g = 130, .b = 130, .a = 255};
@@ -133,7 +133,8 @@ void CChatUI::draw(IRenderSystem& renderer, Lobby::SLobbyState& state,
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         const bool clicked = hovered(panelX, logY, PanelWidth, LogHeight + PanelGap + InputHeight);
         if (clicked && !input.focused) {
-            while (GetCharPressed() > 0);
+            while (GetCharPressed() > 0)
+                ;
         }
         input.focused = clicked;
     }
@@ -143,8 +144,7 @@ void CChatUI::draw(IRenderSystem& renderer, Lobby::SLobbyState& state,
     const auto lines = buildLines(mChatSystem.history(state.chat), state.playerId);
     if (!lines.empty() || input.focused) {
         if (input.focused)
-            drawBox(renderer, panelX, logY, PanelWidth, LogHeight, LogColor,
-                Gold);
+            drawBox(renderer, panelX, logY, PanelWidth, LogHeight, LogColor, Gold);
         const std::size_t shown = std::min(lines.size(), static_cast<std::size_t>(VisibleLines));
         int               y     = logY + Padding + (static_cast<int>(VisibleLines - shown) * LineHeight);
         for (std::size_t index = lines.size() - shown; index < lines.size(); ++index) {
@@ -165,8 +165,8 @@ void CChatUI::draw(IRenderSystem& renderer, Lobby::SLobbyState& state,
     drawBox(renderer, panelX, inputY, PanelWidth, InputHeight, InputColor,
             input.focused ? Gold : BorderColor);
     if (!input.focused && input.text.empty()) {
-        renderer.drawText("Click here to chat...", panelX + Padding, inputY + ((InputHeight - FontSize) / 2),
-                          FontSize, Gray);
+        renderer.drawText("Click here to chat...", panelX + Padding,
+                          inputY + ((InputHeight - FontSize) / 2), FontSize, Gray);
         return;
     }
 

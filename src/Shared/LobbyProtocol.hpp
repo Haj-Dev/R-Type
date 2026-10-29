@@ -325,9 +325,8 @@ namespace Net {
     [[nodiscard]] inline bool readChatComponent(const std::uint8_t* payload, std::size_t size,
                                                 SCChatMessage& message) {
         const CComponentRegistry registry;
-        const auto               component =
-            registry.deserialize(std::vector<std::uint8_t>(payload, payload + size));
-        const auto* decoded = dynamic_cast<const SCChatMessage*>(component.get());
+        const auto  component = registry.deserialize(std::vector<std::uint8_t>(payload, payload + size));
+        const auto* decoded   = dynamic_cast<const SCChatMessage*>(component.get());
         if (decoded == nullptr)
             return false;
         message = *decoded;
