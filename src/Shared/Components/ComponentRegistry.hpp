@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ChatMessage.hpp"
 #include "Collider.hpp"
 #include "DrawableShape.hpp"
 #include "DrawableSprite.hpp"
@@ -40,6 +41,7 @@ class CComponentRegistry {
         registerType<SCDrawableSprite>();
         registerType<SCDrawableSpriteAtlas>();
         registerType<SCEntityType>();
+        registerType<SCChatMessage>();
     }
 
     template <typename T>

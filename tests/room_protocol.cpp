@@ -132,6 +132,52 @@ TEST(LobbyProtocol, HeaderRejectsBadMagicAndOversizedPayload) {
     EXPECT_FALSE(Net::readLobbyHeader(oversized.data(), oversized.size(), command, payloadLength));
 }
 
+TEST(LobbyProtocol, ChatSendRoundTrips) {
+    const auto frame = Net::makeChatSend(SCChatMessage{0, 0, {}, "hello team!"});
+    ASSERT_FALSE(frame.empty());
+
+    Net::eLobbyCommand command;
+    std::uint16_t      payloadLength = 0;
+    ASSERT_TRUE(Net::readLobbyHeader(frame.data(), frame.size(), command, payloadLength));
+    EXPECT_EQ(command, Net::eLobbyCommand::CHAT_SEND);
+
+    SCChatMessage message;
+    ASSERT_TRUE(Net::readChatSend(frame.data() + Net::LobbyHeaderSize, payloadLength, message));
+    EXPECT_EQ(message.text, "hello team!");
+}
+
+TEST(LobbyProtocol, ChatSendRejectsInvalidText) {
+    const auto send = [](const std::string& text) {
+        return Net::makeChatSend(SCChatMessage{0, 0, {}, text});
+    };
+    EXPECT_TRUE(send("").empty());
+    EXPECT_TRUE(send("bad\ntext").empty());
+    EXPECT_TRUE(send(std::string(Chat::MaxTextLength + 1, 'a')).empty());
+    EXPECT_FALSE(send(std::string(Chat::MaxTextLength, 'a')).empty());
+
+    const auto    frame = send("hi");
+    SCChatMessage message;
+    EXPECT_FALSE(Net::readChatSend(frame.data() + Net::LobbyHeaderSize, 2, message));
+}
+
+TEST(LobbyProtocol, ChatMessageRoundTrips) {
+    const auto frame = Net::makeChatMessage(SCChatMessage{7, 2, "Alice", "gg everyone"});
+    ASSERT_FALSE(frame.empty());
+
+    Net::eLobbyCommand command;
+    std::uint16_t      payloadLength = 0;
+    ASSERT_TRUE(Net::readLobbyHeader(frame.data(), frame.size(), command, payloadLength));
+    EXPECT_EQ(command, Net::eLobbyCommand::CHAT_MESSAGE);
+
+    SCChatMessage decoded;
+    ASSERT_TRUE(Net::readChatMessage(frame.data() + Net::LobbyHeaderSize, payloadLength, decoded));
+    EXPECT_EQ(decoded.sequence, 7U);
+    EXPECT_EQ(decoded.senderId, 2);
+    EXPECT_EQ(decoded.sender, "Alice");
+    EXPECT_EQ(decoded.text, "gg everyone");
+    EXPECT_FALSE(Net::readChatMessage(frame.data() + Net::LobbyHeaderSize, payloadLength - 1, decoded));
+}
+
 TEST(RoomManager, CreateJoinAndLaunch) {
     CRoomManager manager;
     EXPECT_TRUE(manager.setPlayerName(0, "Alice").ok);

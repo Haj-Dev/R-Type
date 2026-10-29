@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Shared/ECS/ECS.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -88,6 +90,7 @@ namespace Lobby {
         LAUNCH_GAME,
         LEAVE_ROOM,
         REFRESH_ROOMS,
+        SEND_CHAT,
     };
 
     struct SCommand {
@@ -102,6 +105,7 @@ namespace Lobby {
         std::string                 playerName;
         std::vector<Room::SSummary> rooms;
         std::optional<Room::SInfo>  currentRoom;
+        Ecs::CRegistry              chat; // chat messages and typing state, see Chat::CChatSystem
         std::string                 message;
     };
 

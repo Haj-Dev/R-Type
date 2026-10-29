@@ -6,6 +6,7 @@
 #include <mutex>
 #include <thread>
 
+#include "Client/Chat/ChatUI.hpp"
 #include "Client/Lobby/LobbyUI.hpp"
 #include "Shared/Lobby.hpp"
 #include "Shared/SceneData.hpp"
@@ -38,4 +39,5 @@ class CDrawThread {
     std::thread                  mThread;
     CRenderSystem                mRenderSystem;
     CLobbyUI                     mLobbyUI;
+    CChatUI                      mChatUI;
 };

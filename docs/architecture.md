@@ -65,6 +65,12 @@ All active game components derive from `AComponent` and live in
 `SCPosition`, `SCVelocity`, `SCHealth`, `SCCollider`, `SCEntityType`,
 `SCPlayer`, `SCProjectile`, and `SCDrawable`.
 
+The room text chat follows the same model. `SCChatMessage` is a serializable
+component registered in `CComponentRegistry` and sent over the TCP lobby channel.
+The client stores each message as an entity in a chat registry and keeps the
+local typing state in a client-only `SCChatInput`. `Chat::CChatSystem` posts,
+trims, and orders the messages, and `CChatUI` draws them.
+
 `AComponent` is a common value/marker base, not a place for per-entity
 behavior. Components contain state only. Movement, collision, simulation,
 networking, and rendering remain systems that query component combinations.
