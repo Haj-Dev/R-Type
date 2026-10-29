@@ -132,6 +132,49 @@ TEST(LobbyProtocol, HeaderRejectsBadMagicAndOversizedPayload) {
     EXPECT_FALSE(Net::readLobbyHeader(oversized.data(), oversized.size(), command, payloadLength));
 }
 
+TEST(LobbyProtocol, ChatSendRoundTrips) {
+    const auto frame = Net::makeChatSend("hello team!");
+    ASSERT_FALSE(frame.empty());
+
+    Net::eLobbyCommand command;
+    std::uint16_t      payloadLength = 0;
+    ASSERT_TRUE(Net::readLobbyHeader(frame.data(), frame.size(), command, payloadLength));
+    EXPECT_EQ(command, Net::eLobbyCommand::CHAT_SEND);
+
+    std::string text;
+    ASSERT_TRUE(Net::readChatSend(frame.data() + Net::LobbyHeaderSize, payloadLength, text));
+    EXPECT_EQ(text, "hello team!");
+}
+
+TEST(LobbyProtocol, ChatSendRejectsInvalidText) {
+    EXPECT_TRUE(Net::makeChatSend("").empty());
+    EXPECT_TRUE(Net::makeChatSend("bad\ntext").empty());
+    EXPECT_TRUE(Net::makeChatSend(std::string(Room::MaxChatLength + 1, 'a')).empty());
+    EXPECT_FALSE(Net::makeChatSend(std::string(Room::MaxChatLength, 'a')).empty());
+
+    const auto  frame = Net::makeChatSend("hi");
+    std::string text;
+    EXPECT_FALSE(Net::readChatSend(frame.data() + Net::LobbyHeaderSize, 2, text));
+}
+
+TEST(LobbyProtocol, ChatMessageRoundTrips) {
+    const auto frame = Net::makeChatMessage(
+        Room::SChatMessage{.senderId = 2, .sender = "Alice", .text = "gg everyone"});
+    ASSERT_FALSE(frame.empty());
+
+    Net::eLobbyCommand command;
+    std::uint16_t      payloadLength = 0;
+    ASSERT_TRUE(Net::readLobbyHeader(frame.data(), frame.size(), command, payloadLength));
+    EXPECT_EQ(command, Net::eLobbyCommand::CHAT_MESSAGE);
+
+    Room::SChatMessage decoded;
+    ASSERT_TRUE(Net::readChatMessage(frame.data() + Net::LobbyHeaderSize, payloadLength, decoded));
+    EXPECT_EQ(decoded.senderId, 2);
+    EXPECT_EQ(decoded.sender, "Alice");
+    EXPECT_EQ(decoded.text, "gg everyone");
+    EXPECT_FALSE(Net::readChatMessage(frame.data() + Net::LobbyHeaderSize, payloadLength - 1, decoded));
+}
+
 TEST(RoomManager, CreateJoinAndLaunch) {
     CRoomManager manager;
     EXPECT_TRUE(manager.setPlayerName(0, "Alice").ok);

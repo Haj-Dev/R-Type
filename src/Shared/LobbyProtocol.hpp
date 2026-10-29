@@ -30,6 +30,8 @@ namespace Net {
         LEAVE_ROOM        = 39,
         ROOM_LEFT         = 40,
         ROOM_LIST_REQUEST = 41,
+        CHAT_SEND         = 42,
+        CHAT_MESSAGE      = 43,
     };
 
     inline void appendU16BE(std::vector<std::uint8_t>& output, std::uint16_t value) {
@@ -95,6 +97,13 @@ namespace Net {
             return false;
         return std::ranges::all_of(
             name, [](unsigned char character) { return character >= 0x20U && character <= 0x7EU; });
+    }
+
+    [[nodiscard]] inline bool validChatText(const std::string& text) {
+        if (text.empty() || text.size() > Room::MaxChatLength)
+            return false;
+        return std::ranges::all_of(
+            text, [](unsigned char character) { return character >= 0x20U && character <= 0x7EU; });
     }
 
     inline std::vector<std::uint8_t> makeLobbyFrame(eLobbyCommand                    command,
@@ -309,6 +318,41 @@ namespace Net {
 
     [[nodiscard]] inline bool readRoomLeft(const std::uint8_t*, std::size_t size) {
         return size == 0;
+    }
+
+    inline std::vector<std::uint8_t> makeChatSend(const std::string& text) {
+        if (!validChatText(text))
+            return {};
+        std::vector<std::uint8_t> payload;
+        appendShortString(payload, text);
+        return makeLobbyFrame(eLobbyCommand::CHAT_SEND, payload);
+    }
+
+    [[nodiscard]] inline bool readChatSend(const std::uint8_t* payload, std::size_t size,
+                                           std::string& text) {
+        std::size_t offset = 0;
+        return readShortString(payload, size, offset, text) && offset == size && validChatText(text);
+    }
+
+    inline std::vector<std::uint8_t> makeChatMessage(const Room::SChatMessage& message) {
+        if (!validName(message.sender) || !validChatText(message.text))
+            return {};
+        std::vector<std::uint8_t> payload;
+        payload.push_back(message.senderId);
+        appendName(payload, message.sender);
+        appendShortString(payload, message.text);
+        return makeLobbyFrame(eLobbyCommand::CHAT_MESSAGE, payload);
+    }
+
+    [[nodiscard]] inline bool readChatMessage(const std::uint8_t* payload, std::size_t size,
+                                              Room::SChatMessage& message) {
+        if (size < 1)
+            return false;
+        message.senderId   = payload[0];
+        std::size_t offset = 1;
+        return readName(payload, size, offset, message.sender) &&
+            readShortString(payload, size, offset, message.text) && offset == size &&
+            validChatText(message.text);
     }
 
 } // namespace Net

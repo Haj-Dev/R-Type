@@ -325,6 +325,24 @@ void CServerNetworkThread::handleLobbyCommand(std::uint8_t playerId, Net::eLobby
                       << " player(s)\n";
             return;
         }
+        case Net::eLobbyCommand::CHAT_SEND: {
+            std::string text;
+            if (!Net::readChatSend(payload, payloadSize, text)) {
+                sendRejection(playerId, Room::eRejectReason::SERVER_ERROR, "Invalid chat message");
+                return;
+            }
+            const auto roomId = mRoomManager.roomIdOfPlayer(playerId);
+            if (!roomId) {
+                sendRejection(playerId, Room::eRejectReason::NOT_IN_ROOM, "Join a room to chat");
+                return;
+            }
+            broadcastRoom(*roomId, Net::makeChatMessage(Room::SChatMessage{
+                                       .senderId = playerId,
+                                       .sender   = mRoomManager.playerName(playerId),
+                                       .text     = std::move(text),
+                                   }));
+            return;
+        }
         default:
             std::cerr << "[Server] Unknown lobby command " << static_cast<unsigned>(command)
                       << " from player " << static_cast<unsigned>(playerId) << '\n';

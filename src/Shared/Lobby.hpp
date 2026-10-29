@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <optional>
 #include <string>
 #include <utility>
@@ -13,6 +14,8 @@ namespace Room {
     inline constexpr std::uint16_t MaxRooms            = 64;
     inline constexpr std::size_t   MaxPlayerNameLength = 8;
     inline constexpr std::size_t   MaxRoomNameLength   = 24;
+    inline constexpr std::size_t   MaxChatLength       = 120;
+    inline constexpr std::size_t   MaxChatHistory      = 50;
 
     enum class eState : std::uint8_t {
         WAITING = 0,
@@ -60,6 +63,12 @@ namespace Room {
         std::vector<SPlayer> players;
     };
 
+    struct SChatMessage {
+        std::uint8_t senderId = 0;
+        std::string  sender;
+        std::string  text;
+    };
+
     inline SResult success() {
         return SResult{.ok = true, .reason = eRejectReason::SERVER_ERROR, .message = {}};
     }
@@ -88,6 +97,7 @@ namespace Lobby {
         LAUNCH_GAME,
         LEAVE_ROOM,
         REFRESH_ROOMS,
+        SEND_CHAT,
     };
 
     struct SCommand {
@@ -102,6 +112,7 @@ namespace Lobby {
         std::string                 playerName;
         std::vector<Room::SSummary> rooms;
         std::optional<Room::SInfo>  currentRoom;
+        std::deque<Room::SChatMessage> chat;
         std::string                 message;
     };
 

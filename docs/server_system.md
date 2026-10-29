@@ -503,6 +503,8 @@ The lobby runs on the gameplay TCP connection after the seven-byte `HELLO` / fiv
 | `39` | `LEAVE_ROOM` | Client to server |
 | `40` | `ROOM_LEFT` | Server to client |
 | `41` | `ROOM_LIST_REQUEST` | Client to server |
+| `42` | `CHAT_SEND` | Client to server |
+| `43` | `CHAT_MESSAGE` | Server to client |
 
 ### `JOIN` (`30`)
 
@@ -585,6 +587,24 @@ Empty payloads. `ROOM_LEFT` is followed by a fresh `ROOM_LIST`.
 ### `ROOM_LIST_REQUEST` (`41`)
 
 Empty payload. The server replies with `ROOM_LIST`.
+
+### `CHAT_SEND` (`42`)
+
+```text
+short_string  text
+```
+
+`text` is 1–120 printable ASCII bytes. The sender must be in a room, otherwise the server answers `ROOM_REJECTED` (`NOT_IN_ROOM`). The chat is available in the lobby room and during the game.
+
+### `CHAT_MESSAGE` (`43`)
+
+```text
+u8            sender_id
+name          sender_name
+short_string  text
+```
+
+The server broadcasts it to every member of the sender's room, including the sender, so every client displays the same history.
 
 ## Failure handling
 
