@@ -13,6 +13,7 @@
 #include "Shared/LobbyProtocol.hpp"
 #include "Shared/SceneData.hpp"
 #include "Shared/PlayerActions.hpp"
+#include "Shared/Systems/ChatSystem.hpp"
 
 class CNetworkThread {
   public:
@@ -77,4 +78,5 @@ class CNetworkThread {
     std::atomic_bool             mConnected  = false;
     std::vector<std::uint8_t>    mTcpBuffer;
     bool                         mInGame = false;
+    Chat::CChatSystem            mChatSystem;
 };

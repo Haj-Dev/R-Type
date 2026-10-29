@@ -304,6 +304,9 @@ void CNetworkThread::processLobbyCommands() {
             case Lobby::eClientCommand::REFRESH_ROOMS: sendLobbyFrame(Net::makeRoomListRequest()); break;
             case Lobby::eClientCommand::SELECT_SERVER:
             case Lobby::eClientCommand::REFRESH_SERVERS: break;
+            case Lobby::eClientCommand::SEND_CHAT:
+                sendLobbyFrame(Net::makeChatSend(SCChatMessage{0, 0, {}, command.text}));
+                break;
         }
     }
 }
@@ -360,6 +363,7 @@ void CNetworkThread::handleLobbyMessage(Net::eLobbyCommand command, const std::u
             std::scoped_lock lock(mtex);
             mLobbyState.currentRoom = std::move(room);
             mLobbyState.phase       = Lobby::eLobbyPhase::IN_ROOM;
+            mChatSystem.clearMessages(mLobbyState.chat);
             mLobbyState.message.clear();
             break;
         }
@@ -388,8 +392,17 @@ void CNetworkThread::handleLobbyMessage(Net::eLobbyCommand command, const std::u
             mGameplayId = 0;
             std::scoped_lock lock(mtex);
             mLobbyState.currentRoom.reset();
+            mChatSystem.clearMessages(mLobbyState.chat);
             mLobbyState.phase = Lobby::eLobbyPhase::ROOM_LIST;
             mPlayerActions.connected.fill(false);
+            break;
+        }
+        case Net::eLobbyCommand::CHAT_MESSAGE: {
+            SCChatMessage message;
+            if (!Net::readChatMessage(payload, payloadSize, message))
+                throw std::runtime_error("invalid chat message");
+            std::scoped_lock lock(mtex);
+            mChatSystem.post(mLobbyState.chat, std::move(message));
             break;
         }
         case Net::eLobbyCommand::GAME_STARTED: {

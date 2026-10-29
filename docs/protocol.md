@@ -147,7 +147,8 @@ followed by printable ASCII bytes.
 The implemented commands are `JOIN` (`30`), `ROOM_LIST` (`31`), `CREATE_ROOM`
 (`32`), `SELECT_ROOM` (`33`), `ROOM_JOINED` (`34`), `ROOM_STATE` (`35`),
 `ROOM_REJECTED` (`36`), `LAUNCH_GAME` (`37`), `GAME_STARTED` (`38`),
-`LEAVE_ROOM` (`39`), `ROOM_LEFT` (`40`), and `ROOM_LIST_REQUEST` (`41`).
+`LEAVE_ROOM` (`39`), `ROOM_LEFT` (`40`), `ROOM_LIST_REQUEST` (`41`),
+`CHAT_SEND` (`42`), and `CHAT_MESSAGE` (`43`).
 Their payload layouts are documented in
 [`server_system.md`](server_system.md#lobby-protocol).
 

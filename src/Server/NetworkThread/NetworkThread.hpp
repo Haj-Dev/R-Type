@@ -66,6 +66,7 @@ class CServerNetworkThread {
     std::array<std::vector<std::uint8_t>, Room::MaxConnections>   mTcpBuffers;
     std::array<std::optional<std::uint8_t>, Room::MaxConnections> mConnectionGameplayIds;
     CRoomManager                                                  mRoomManager;
+    std::uint32_t                                                 mChatSequence = 0;
 
     struct SPendingHandshake {
         asio::ip::tcp::socket                        socket;
