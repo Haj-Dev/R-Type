@@ -588,23 +588,21 @@ Empty payloads. `ROOM_LEFT` is followed by a fresh `ROOM_LIST`.
 
 Empty payload. The server replies with `ROOM_LIST`.
 
-### `CHAT_SEND` (`42`)
+### `CHAT_SEND` (`42`) and `CHAT_MESSAGE` (`43`)
+
+Both payloads are one serialized `SCChatMessage` component record, packed by the component itself (`AComponent::serialize`) and unpacked through the shared `CComponentRegistry`, like the snapshot components (little-endian, strings are a `u32` length followed by bytes):
 
 ```text
-short_string  text
-```
-
-`text` is 1–120 printable ASCII bytes. The sender must be in a room, otherwise the server answers `ROOM_REJECTED` (`NOT_IN_ROOM`). The chat is available in the lobby room and during the game.
-
-### `CHAT_MESSAGE` (`43`)
-
-```text
+u8            component_type   11 (CHAT_MESSAGE)
+u32           sequence
 u8            sender_id
-name          sender_name
-short_string  text
+u32 + bytes   sender           0–8 bytes
+u32 + bytes   text             1–120 printable ASCII bytes
 ```
 
-The server broadcasts it to every member of the sender's room, including the sender, so every client displays the same history.
+The client sends `CHAT_SEND` with only `text` filled in. The sender must be in a room, otherwise the server answers `ROOM_REJECTED` (`NOT_IN_ROOM`). The server stamps `sender_id`, `sender` (the player name) and an increasing `sequence`, then broadcasts it as `CHAT_MESSAGE` to every member of the sender's room, including the sender, so every client displays the same history. The chat is available in the lobby room and during the game.
+
+On the client, each received message becomes an entity owning an `SCChatMessage` in the chat registry (`Lobby::SLobbyState::chat`), next to a single entity owning the local `SCChatInput` typing state. `Chat::CChatSystem` (`src/Shared/Systems/ChatSystem.hpp`) keeps the last 50 messages ordered by `sequence`; `CChatUI` only draws them.
 
 ## Failure handling
 

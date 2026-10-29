@@ -133,7 +133,7 @@ TEST(LobbyProtocol, HeaderRejectsBadMagicAndOversizedPayload) {
 }
 
 TEST(LobbyProtocol, ChatSendRoundTrips) {
-    const auto frame = Net::makeChatSend("hello team!");
+    const auto frame = Net::makeChatSend(SCChatMessage{0, 0, {}, "hello team!"});
     ASSERT_FALSE(frame.empty());
 
     Net::eLobbyCommand command;
@@ -141,25 +141,27 @@ TEST(LobbyProtocol, ChatSendRoundTrips) {
     ASSERT_TRUE(Net::readLobbyHeader(frame.data(), frame.size(), command, payloadLength));
     EXPECT_EQ(command, Net::eLobbyCommand::CHAT_SEND);
 
-    std::string text;
-    ASSERT_TRUE(Net::readChatSend(frame.data() + Net::LobbyHeaderSize, payloadLength, text));
-    EXPECT_EQ(text, "hello team!");
+    SCChatMessage message;
+    ASSERT_TRUE(Net::readChatSend(frame.data() + Net::LobbyHeaderSize, payloadLength, message));
+    EXPECT_EQ(message.text, "hello team!");
 }
 
 TEST(LobbyProtocol, ChatSendRejectsInvalidText) {
-    EXPECT_TRUE(Net::makeChatSend("").empty());
-    EXPECT_TRUE(Net::makeChatSend("bad\ntext").empty());
-    EXPECT_TRUE(Net::makeChatSend(std::string(Room::MaxChatLength + 1, 'a')).empty());
-    EXPECT_FALSE(Net::makeChatSend(std::string(Room::MaxChatLength, 'a')).empty());
+    const auto send = [](const std::string& text) {
+        return Net::makeChatSend(SCChatMessage{0, 0, {}, text});
+    };
+    EXPECT_TRUE(send("").empty());
+    EXPECT_TRUE(send("bad\ntext").empty());
+    EXPECT_TRUE(send(std::string(Chat::MaxTextLength + 1, 'a')).empty());
+    EXPECT_FALSE(send(std::string(Chat::MaxTextLength, 'a')).empty());
 
-    const auto  frame = Net::makeChatSend("hi");
-    std::string text;
-    EXPECT_FALSE(Net::readChatSend(frame.data() + Net::LobbyHeaderSize, 2, text));
+    const auto    frame = send("hi");
+    SCChatMessage message;
+    EXPECT_FALSE(Net::readChatSend(frame.data() + Net::LobbyHeaderSize, 2, message));
 }
 
 TEST(LobbyProtocol, ChatMessageRoundTrips) {
-    const auto frame = Net::makeChatMessage(
-        Room::SChatMessage{.senderId = 2, .sender = "Alice", .text = "gg everyone"});
+    const auto frame = Net::makeChatMessage(SCChatMessage{7, 2, "Alice", "gg everyone"});
     ASSERT_FALSE(frame.empty());
 
     Net::eLobbyCommand command;
@@ -167,8 +169,9 @@ TEST(LobbyProtocol, ChatMessageRoundTrips) {
     ASSERT_TRUE(Net::readLobbyHeader(frame.data(), frame.size(), command, payloadLength));
     EXPECT_EQ(command, Net::eLobbyCommand::CHAT_MESSAGE);
 
-    Room::SChatMessage decoded;
+    SCChatMessage decoded;
     ASSERT_TRUE(Net::readChatMessage(frame.data() + Net::LobbyHeaderSize, payloadLength, decoded));
+    EXPECT_EQ(decoded.sequence, 7U);
     EXPECT_EQ(decoded.senderId, 2);
     EXPECT_EQ(decoded.sender, "Alice");
     EXPECT_EQ(decoded.text, "gg everyone");

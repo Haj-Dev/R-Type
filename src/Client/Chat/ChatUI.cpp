@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -25,8 +26,8 @@ namespace {
     constexpr SColor Gray{.r = 130, .g = 130, .b = 130, .a = 255};
     constexpr SColor Gold{.r = 255, .g = 203, .b = 0, .a = 255};
     constexpr SColor SkyBlue{.r = 102, .g = 191, .b = 255, .a = 255};
-    constexpr SColor InputColor{.r = 20, .g = 25, .b = 40, .a = 255};
     constexpr SColor BorderColor{.r = 90, .g = 110, .b = 160, .a = 255};
+    constexpr SColor InputColor{.r = 20, .g = 25, .b = 40, .a = 255};
     constexpr SColor LogColor{.r = 10, .g = 14, .b = 30, .a = 190};
 
     struct SLine {
@@ -68,14 +69,15 @@ namespace {
         return lines;
     }
 
-    [[nodiscard]] std::vector<SLine> buildLines(const Lobby::SLobbyState& state) {
-        constexpr int     textWidth = PanelWidth - (2 * Padding);
+    [[nodiscard]] std::vector<SLine> buildLines(const std::vector<const SCChatMessage*>& messages,
+                                                std::uint8_t                             selfId) {
+        constexpr int      textWidth = PanelWidth - (2 * Padding);
         std::vector<SLine> lines;
-        for (const auto& message : state.chat) {
-            const std::string namePart  = message.sender + ":";
-            const SColor      nameColor = message.senderId == state.playerId ? Gold : SkyBlue;
+        for (const auto* message : messages) {
+            const std::string namePart  = message->sender + ":";
+            const SColor      nameColor = message->senderId == selfId ? Gold : SkyBlue;
             bool              first     = true;
-            for (auto& line : wrap(namePart + " " + message.text, textWidth)) {
+            for (auto& line : wrap(namePart + " " + message->text, textWidth)) {
                 const bool hasName = first && line.starts_with(namePart);
                 lines.push_back(SLine{
                     .text       = std::move(line),
@@ -96,30 +98,31 @@ namespace {
 
 } // namespace
 
-void CChatUI::handleTyping(std::deque<Lobby::SCommand>& commands) {
+void CChatUI::handleTyping(SCChatInput& input, std::deque<Lobby::SCommand>& commands) const {
     int character = GetCharPressed();
     while (character > 0) {
-        if (character >= 32 && character <= 126 && mInput.size() < Room::MaxChatLength)
-            mInput.push_back(static_cast<char>(character));
+        if (character >= 32 && character <= 126 && input.text.size() < Chat::MaxTextLength)
+            input.text.push_back(static_cast<char>(character));
         character = GetCharPressed();
     }
-    if ((IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) && !mInput.empty())
-        mInput.pop_back();
+    if ((IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) && !input.text.empty())
+        input.text.pop_back();
     if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) {
-        if (mInput.empty()) {
-            mFocused = false;
+        if (input.text.empty()) {
+            input.focused = false;
         } else {
             commands.push_back(
-                Lobby::SCommand{.type = Lobby::eClientCommand::SEND_CHAT, .text = mInput});
-            mInput.clear();
+                Lobby::SCommand{.type = Lobby::eClientCommand::SEND_CHAT, .text = input.text});
+            input.text.clear();
         }
     }
 }
 
-void CChatUI::draw(IRenderSystem& renderer, const Lobby::SLobbyState& state,
+void CChatUI::draw(IRenderSystem& renderer, Lobby::SLobbyState& state,
                    std::deque<Lobby::SCommand>& commands) {
+    auto& input = mChatSystem.input(state.chat);
     if (state.phase != Lobby::eLobbyPhase::IN_ROOM && state.phase != Lobby::eLobbyPhase::IN_GAME) {
-        mFocused = false;
+        input.focused = false;
         return;
     }
 
@@ -129,19 +132,19 @@ void CChatUI::draw(IRenderSystem& renderer, const Lobby::SLobbyState& state,
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         const bool clicked = hovered(panelX, logY, PanelWidth, LogHeight + PanelGap + InputHeight);
-        if (clicked && !mFocused) {
-            while (GetCharPressed() > 0) {
-            }
+        if (clicked && !input.focused) {
+            while (GetCharPressed() > 0);
         }
-        mFocused = clicked;
+        input.focused = clicked;
     }
-    if (mFocused)
-        handleTyping(commands);
+    if (input.focused)
+        handleTyping(input, commands);
 
-    const auto lines = buildLines(state);
-    if (!lines.empty() || mFocused) {
-        drawBox(renderer, panelX, logY, PanelWidth, LogHeight, LogColor,
-                mFocused ? Gold : BorderColor);
+    const auto lines = buildLines(mChatSystem.history(state.chat), state.playerId);
+    if (!lines.empty() || input.focused) {
+        if (input.focused)
+            drawBox(renderer, panelX, logY, PanelWidth, LogHeight, LogColor,
+                Gold);
         const std::size_t shown = std::min(lines.size(), static_cast<std::size_t>(VisibleLines));
         int               y     = logY + Padding + (static_cast<int>(VisibleLines - shown) * LineHeight);
         for (std::size_t index = lines.size() - shown; index < lines.size(); ++index) {
@@ -160,19 +163,19 @@ void CChatUI::draw(IRenderSystem& renderer, const Lobby::SLobbyState& state,
     }
 
     drawBox(renderer, panelX, inputY, PanelWidth, InputHeight, InputColor,
-            mFocused ? Gold : BorderColor);
-    if (!mFocused && mInput.empty()) {
+            input.focused ? Gold : BorderColor);
+    if (!input.focused && input.text.empty()) {
         renderer.drawText("Click here to chat...", panelX + Padding, inputY + ((InputHeight - FontSize) / 2),
                           FontSize, Gray);
         return;
     }
 
-    std::string visible = mInput;
+    std::string visible = input.text;
     while (!visible.empty() && MeasureText(visible.c_str(), FontSize) > PanelWidth - (3 * Padding))
         visible.erase(0, 1);
     const int textY = inputY + ((InputHeight - FontSize) / 2);
     renderer.drawText(visible, panelX + Padding, textY, FontSize, White);
-    if (mFocused && static_cast<int>(GetTime() * 2.0) % 2 == 0) {
+    if (input.focused && static_cast<int>(GetTime() * 2.0) % 2 == 0) {
         renderer.drawRectangle(panelX + Padding + MeasureText(visible.c_str(), FontSize) + 1, textY, 2,
                                FontSize, White);
     }

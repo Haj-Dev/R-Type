@@ -100,7 +100,7 @@ namespace Net {
     }
 
     [[nodiscard]] inline bool validChatText(const std::string& text) {
-        if (text.empty() || text.size() > Room::MaxChatLength)
+        if (text.empty() || text.size() > Chat::MaxTextLength)
             return false;
         return std::ranges::all_of(
             text, [](unsigned char character) { return character >= 0x20U && character <= 0x7EU; });
@@ -320,39 +320,46 @@ namespace Net {
         return size == 0;
     }
 
-    inline std::vector<std::uint8_t> makeChatSend(const std::string& text) {
-        if (!validChatText(text))
+    // Chat frames carry a serialized SCChatMessage component, so they are packed and
+    // unpacked by the component itself and the shared component registry.
+    [[nodiscard]] inline bool readChatComponent(const std::uint8_t* payload, std::size_t size,
+                                                SCChatMessage& message) {
+        const CComponentRegistry registry;
+        const auto               component =
+            registry.deserialize(std::vector<std::uint8_t>(payload, payload + size));
+        const auto* decoded = dynamic_cast<const SCChatMessage*>(component.get());
+        if (decoded == nullptr)
+            return false;
+        message = *decoded;
+        return validChatText(message.text);
+    }
+
+    // Client to server: only the text of `message` is meaningful.
+    inline std::vector<std::uint8_t> makeChatSend(const SCChatMessage& message) {
+        if (!validChatText(message.text))
             return {};
         std::vector<std::uint8_t> payload;
-        appendShortString(payload, text);
+        SCChatMessage{0, 0, {}, message.text}.serialize(payload);
         return makeLobbyFrame(eLobbyCommand::CHAT_SEND, payload);
     }
 
     [[nodiscard]] inline bool readChatSend(const std::uint8_t* payload, std::size_t size,
-                                           std::string& text) {
-        std::size_t offset = 0;
-        return readShortString(payload, size, offset, text) && offset == size && validChatText(text);
+                                           SCChatMessage& message) {
+        return readChatComponent(payload, size, message);
     }
 
-    inline std::vector<std::uint8_t> makeChatMessage(const Room::SChatMessage& message) {
+    // Server to client: the message is stamped with its sender and sequence.
+    inline std::vector<std::uint8_t> makeChatMessage(const SCChatMessage& message) {
         if (!validName(message.sender) || !validChatText(message.text))
             return {};
         std::vector<std::uint8_t> payload;
-        payload.push_back(message.senderId);
-        appendName(payload, message.sender);
-        appendShortString(payload, message.text);
+        message.serialize(payload);
         return makeLobbyFrame(eLobbyCommand::CHAT_MESSAGE, payload);
     }
 
     [[nodiscard]] inline bool readChatMessage(const std::uint8_t* payload, std::size_t size,
-                                              Room::SChatMessage& message) {
-        if (size < 1)
-            return false;
-        message.senderId   = payload[0];
-        std::size_t offset = 1;
-        return readName(payload, size, offset, message.sender) &&
-            readShortString(payload, size, offset, message.text) && offset == size &&
-            validChatText(message.text);
+                                              SCChatMessage& message) {
+        return readChatComponent(payload, size, message) && validName(message.sender);
     }
 
 } // namespace Net
