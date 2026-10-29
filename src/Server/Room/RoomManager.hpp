@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Shared/Lobby.hpp"
-#include "Shared/PlayerActions.hpp"
 
 #include <array>
 #include <cstdint>
@@ -10,7 +9,8 @@
 #include <vector>
 
 // Owns the lobby-side room state. Player identifiers are the connection IDs
-// assigned by the TCP handshake (0..SPLayerActions::MaxPlayers-1).
+// assigned by the TCP handshake (0..Room::MaxConnections-1). Each room is
+// capped at Room::MaxPlayersPerRoom players.
 class CRoomManager {
   public:
     [[nodiscard]] Room::SResult setPlayerName(std::uint8_t playerId, const std::string& name);
@@ -42,14 +42,14 @@ class CRoomManager {
         std::vector<std::uint8_t> players;
     };
 
-    [[nodiscard]] SRoom*                                findRoom(std::uint16_t roomId);
-    [[nodiscard]] const SRoom*                          findRoom(std::uint16_t roomId) const;
-    [[nodiscard]] Room::SInfo                           makeInfo(const SRoom& room) const;
-    void                                                removeRoom(std::uint16_t roomId);
+    [[nodiscard]] SRoom*                                           findRoom(std::uint16_t roomId);
+    [[nodiscard]] const SRoom*                                     findRoom(std::uint16_t roomId) const;
+    [[nodiscard]] Room::SInfo                                      makeInfo(const SRoom& room) const;
+    void                                                           removeRoom(std::uint16_t roomId);
 
-    std::array<std::string, SPLayerActions::MaxPlayers> mPlayerNames{};
-    std::array<std::optional<std::uint16_t>, SPLayerActions::MaxPlayers> mPlayerRooms{};
-    std::vector<SRoom>                                                   mRooms;
-    std::uint16_t                                                        mNextRoomId = 1;
-    std::optional<std::uint16_t>                                         mActiveRoom;
+    std::array<std::string, Room::MaxConnections>                  mPlayerNames{};
+    std::array<std::optional<std::uint16_t>, Room::MaxConnections> mPlayerRooms{};
+    std::vector<SRoom>                                             mRooms;
+    std::uint16_t                                                  mNextRoomId = 1;
+    std::optional<std::uint16_t>                                   mActiveRoom;
 };

@@ -10,6 +10,7 @@
 namespace Room {
 
     inline constexpr std::uint8_t  MaxPlayersPerRoom   = 4;
+    inline constexpr std::size_t   MaxConnections      = 64;
     inline constexpr std::uint16_t MaxRooms            = 64;
     inline constexpr std::size_t   MaxPlayerNameLength = 8;
     inline constexpr std::size_t   MaxRoomNameLength   = 24;
@@ -74,6 +75,7 @@ namespace Lobby {
 
     enum class eLobbyPhase : std::uint8_t {
         CONNECTING = 0,
+        SERVER_SELECT,
         NAME_ENTRY,
         ROOM_LIST,
         IN_ROOM,
@@ -88,6 +90,8 @@ namespace Lobby {
         LAUNCH_GAME,
         LEAVE_ROOM,
         REFRESH_ROOMS,
+        SELECT_SERVER,
+        REFRESH_SERVERS,
     };
 
     struct SCommand {
@@ -96,10 +100,25 @@ namespace Lobby {
         std::uint16_t  roomId = 0;
     };
 
+    struct SServerInfo {
+        std::string   name;
+        std::string   address;
+        std::uint16_t tcpPort          = 0;
+        std::uint16_t udpPort          = 0;
+        std::uint16_t connectedPlayers = 0;
+        std::uint16_t maxPlayers       = 0;
+        std::uint16_t rooms            = 0;
+        std::uint16_t joinableRooms    = 0;
+        std::uint8_t  major            = 0;
+        std::uint8_t  minor            = 0;
+        std::uint8_t  state            = 0;
+    };
+
     struct SLobbyState {
         eLobbyPhase                 phase    = eLobbyPhase::CONNECTING;
         std::uint8_t                playerId = 0;
         std::string                 playerName;
+        std::vector<SServerInfo>    servers;
         std::vector<Room::SSummary> rooms;
         std::optional<Room::SInfo>  currentRoom;
         std::string                 message;

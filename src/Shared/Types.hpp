@@ -101,7 +101,7 @@ namespace Net {
             data[3] != static_cast<std::uint8_t>(eCommandType::WELCOME))
             return false;
         playerId = data[4];
-        return playerId < SPLayerActions::MaxPlayers;
+        return true;
     }
 
     inline std::vector<std::uint8_t> makeInput(const SPlayerActionState& action) {

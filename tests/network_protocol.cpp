@@ -59,11 +59,12 @@ TEST(NetworkProtocol, TcpWelcomeRejectsMalformedPackets) {
     EXPECT_FALSE(Net::readTcpWelcome(valid.data(), valid.size() - 1, playerId));
 }
 
-TEST(NetworkProtocol, TcpWelcomeRejectsOutOfRangePlayerId) {
-    const auto   packet   = Net::makeTcpWelcome(static_cast<std::uint8_t>(SPLayerActions::MaxPlayers));
+TEST(NetworkProtocol, TcpWelcomeAcceptsConnectionId) {
+    const auto   packet   = Net::makeTcpWelcome(255);
     std::uint8_t playerId = 0;
 
-    EXPECT_FALSE(Net::readTcpWelcome(packet.data(), packet.size(), playerId));
+    EXPECT_TRUE(Net::readTcpWelcome(packet.data(), packet.size(), playerId));
+    EXPECT_EQ(playerId, 255);
 }
 
 TEST(NetworkProtocol, InputRoundTripsEveryActionFlag) {

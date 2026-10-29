@@ -14,6 +14,8 @@ class CLobbyUI {
 
   private:
     void               drawConnecting(IRenderSystem& renderer) const;
+    void               drawServerList(IRenderSystem& renderer, const Lobby::SLobbyState& state,
+                                      std::deque<Lobby::SCommand>& commands);
     void               drawNameEntry(IRenderSystem& renderer, const Lobby::SLobbyState& state,
                                      std::deque<Lobby::SCommand>& commands);
     void               drawRoomList(IRenderSystem& renderer, const Lobby::SLobbyState& state,

@@ -1,10 +1,9 @@
 #pragma once
 
 #include "Shared/Lobby.hpp"
-#include "Shared/Types.hpp"
+#include "Shared/Wire.hpp"
 
 #include <algorithm>
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -14,7 +13,7 @@ namespace Net {
 
     // Lobby frames reuse the control-plane framing: magic, command, u16 payload length.
     // Multi-byte integers are big-endian, unlike the UDP gameplay protocol.
-    inline constexpr std::size_t   LobbyHeaderSize = 6;
+    inline constexpr std::size_t   LobbyHeaderSize = WireHeaderSize;
     inline constexpr std::uint16_t MaxLobbyPayload = 4096;
 
     enum class eLobbyCommand : std::uint8_t {
@@ -32,64 +31,6 @@ namespace Net {
         ROOM_LIST_REQUEST = 41,
     };
 
-    inline void appendU16BE(std::vector<std::uint8_t>& output, std::uint16_t value) {
-        output.push_back(static_cast<std::uint8_t>((static_cast<unsigned>(value) >> 8U) & 0xFFU));
-        output.push_back(static_cast<std::uint8_t>(static_cast<unsigned>(value) & 0xFFU));
-    }
-
-    [[nodiscard]] inline std::uint16_t readU16BE(const std::uint8_t* data) {
-        return static_cast<std::uint16_t>((static_cast<unsigned>(data[0]) << 8U) |
-                                          static_cast<unsigned>(data[1]));
-    }
-
-    [[nodiscard]] inline bool validName(const std::string& name) {
-        if (name.empty() || name.size() > Room::MaxPlayerNameLength)
-            return false;
-        return std::ranges::all_of(
-            name, [](unsigned char character) { return character >= 0x20U && character <= 0x7EU; });
-    }
-
-    inline void appendName(std::vector<std::uint8_t>& output, const std::string& name) {
-        std::array<std::uint8_t, Room::MaxPlayerNameLength> bytes{};
-        std::copy_n(name.begin(), std::min(name.size(), bytes.size()), bytes.begin());
-        output.insert(output.end(), bytes.begin(), bytes.end());
-    }
-
-    [[nodiscard]] inline bool readName(const std::uint8_t* data, std::size_t size, std::size_t& offset,
-                                       std::string& name) {
-        if (offset + Room::MaxPlayerNameLength > size)
-            return false;
-        std::size_t length = 0;
-        while (length < Room::MaxPlayerNameLength && data[offset + length] != 0)
-            ++length;
-        for (std::size_t index = length; index < Room::MaxPlayerNameLength; ++index) {
-            if (data[offset + index] != 0)
-                return false;
-        }
-        if (length == 0)
-            return false;
-        name.assign(reinterpret_cast<const char*>(data + offset), length);
-        offset += Room::MaxPlayerNameLength;
-        return validName(name);
-    }
-
-    inline void appendShortString(std::vector<std::uint8_t>& output, const std::string& value) {
-        output.push_back(static_cast<std::uint8_t>(value.size()));
-        output.insert(output.end(), value.begin(), value.end());
-    }
-
-    [[nodiscard]] inline bool readShortString(const std::uint8_t* data, std::size_t size,
-                                              std::size_t& offset, std::string& value) {
-        if (offset >= size)
-            return false;
-        const auto length = static_cast<std::size_t>(data[offset++]);
-        if (offset + length > size)
-            return false;
-        value.assign(reinterpret_cast<const char*>(data + offset), length);
-        offset += length;
-        return true;
-    }
-
     [[nodiscard]] inline bool validRoomName(const std::string& name) {
         if (name.empty() || name.size() > Room::MaxRoomNameLength)
             return false;
@@ -99,26 +40,16 @@ namespace Net {
 
     inline std::vector<std::uint8_t> makeLobbyFrame(eLobbyCommand                    command,
                                                     const std::vector<std::uint8_t>& payload) {
-        std::vector<std::uint8_t> frame = {
-            Magic.at(0),
-            Magic.at(1),
-            Magic.at(2),
-            static_cast<std::uint8_t>(command),
-        };
-        appendU16BE(frame, static_cast<std::uint16_t>(payload.size()));
-        frame.insert(frame.end(), payload.begin(), payload.end());
-        return frame;
+        return makeFrame(static_cast<std::uint8_t>(command), payload);
     }
 
     [[nodiscard]] inline bool readLobbyHeader(const std::uint8_t* data, std::size_t size,
                                               eLobbyCommand& command, std::uint16_t& payloadLength) {
-        if (size < LobbyHeaderSize)
+        std::uint8_t rawCommand = 0;
+        if (!readFrameHeader(data, size, rawCommand, payloadLength, MaxLobbyPayload))
             return false;
-        if (data[0] != Magic.at(0) || data[1] != Magic.at(1) || data[2] != Magic.at(2))
-            return false;
-        command       = static_cast<eLobbyCommand>(data[3]);
-        payloadLength = readU16BE(data + 4);
-        return payloadLength <= MaxLobbyPayload;
+        command = static_cast<eLobbyCommand>(rawCommand);
+        return true;
     }
 
     inline std::vector<std::uint8_t> makeJoin(const std::string& playerName) {
@@ -281,18 +212,20 @@ namespace Net {
         return size == 0;
     }
 
-    inline std::vector<std::uint8_t> makeGameStarted(std::uint16_t roomId) {
+    inline std::vector<std::uint8_t> makeGameStarted(std::uint16_t roomId, std::uint8_t gameplayId) {
         std::vector<std::uint8_t> payload;
         appendU16BE(payload, roomId);
+        payload.push_back(gameplayId);
         return makeLobbyFrame(eLobbyCommand::GAME_STARTED, payload);
     }
 
     [[nodiscard]] inline bool readGameStarted(const std::uint8_t* payload, std::size_t size,
-                                              std::uint16_t& roomId) {
-        if (size != 2)
+                                              std::uint16_t& roomId, std::uint8_t& gameplayId) {
+        if (size != 3)
             return false;
-        roomId = readU16BE(payload);
-        return true;
+        roomId     = readU16BE(payload);
+        gameplayId = payload[2];
+        return gameplayId < SPLayerActions::MaxPlayers;
     }
 
     inline std::vector<std::uint8_t> makeLeaveRoom() {

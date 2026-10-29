@@ -8,7 +8,7 @@
 namespace {
 
     [[nodiscard]] bool validPlayerId(std::uint8_t playerId) {
-        return playerId < SPLayerActions::MaxPlayers;
+        return playerId < Room::MaxConnections;
     }
 
 } // namespace
