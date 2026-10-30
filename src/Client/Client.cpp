@@ -1,10 +1,11 @@
 #include "Client.hpp"
 
-CClient::CClient(const std::string& serverAddress) :
+CClient::CClient(const std::string& masterAddress, std::uint16_t masterPort,
+                 const std::string& preferredServer) :
     mLogicThread(mSceneData, mPlayerActions, mtex, mRunning, mStopCondition),
     mDrawThread(mSceneData, mPlayerActions, mtex, mRunning, mStopCondition, mLobbyState, mLobbyCommands),
-    mNetworkThread(mIo, mSceneData, mPlayerActions, mtex, mRunning, mStopCondition, serverAddress,
-                   mLobbyState, mLobbyCommands) {
+    mNetworkThread(mIo, mSceneData, mPlayerActions, mtex, mRunning, mStopCondition, masterAddress,
+                   masterPort, preferredServer, mLobbyState, mLobbyCommands) {
     start();
 }
 
@@ -18,17 +19,9 @@ void CClient::start() {
         return;
     }
 
-    mNetworkThread.start();
-    {
-        std::unique_lock lock(mtex);
-        mStopCondition.wait(lock, [this] { return !mRunning.load() || mNetworkThread.connected(); });
-    }
-    if (!mRunning.load()) {
-        mNetworkThread.join();
-        return;
-    }
     mLogicThread.start();
     mDrawThread.start();
+    mNetworkThread.start();
 }
 
 void CClient::stop() {

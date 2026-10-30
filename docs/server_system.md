@@ -4,10 +4,10 @@
 
 - Gameplay protocol: one client ↔ one game server.
 - Room/lobby protocol: implemented on the gameplay TCP connection; rooms are lobby-only for now.
-- Control protocol (planned): master server for discovery and monitoring.
+- Control protocol: implemented. The master server is part of the same `r-type_server` binary; run it with no arguments.
 - Gameplay wire format: [`protocol.md`](protocol.md). Simulation and responsibilities: [`architecture.md`](architecture.md).
 - This doc supersedes `protocol.md`; `protocol.md` stays authoritative for implemented packets until changes land here.
-- Master, registry, discovery, registration, health checks: planned, not implemented. Control-plane layouts here are the target.
+- Master, registry, discovery, registration, health checks: implemented.
 - Rooms: implemented. One room can be in game at a time because the current simulation is a single four-player world. Per-room simulations and larger lobbies are future work.
 - Keywords: **must**, **must not**, **should**, **should not**, **may** = required, forbidden, recommended, not-recommended, optional.
 
@@ -72,15 +72,22 @@ flowchart LR
 | Client to game server | TCP | Persistent for the player connection | Gameplay handshake and liveness |
 | Client to game server | UDP | Session lifetime | Player input and authoritative state or corrections |
 
-- Master endpoint: deployment-configured, known to servers and clients; no reserved master port.
+- Master endpoint: deployment-configured, known to servers and clients; no reserved master port. The implementation defaults to TCP `7100`.
 - Current server defaults: TCP `7000`, UDP `7001`; registered servers may advertise other ports.
 - Advertised endpoint must be reachable by peers. Binding `0.0.0.0`, `::`, or a private address is not a usable public endpoint. NAT/port-forward/DNS/firewall = deployment. No NAT traversal here.
+
+## Running
+
+- Master: `./r-type_server` (listens on TCP `7100`).
+- Game server: `./r-type_server <master-ip> [--name <name>] [--advertise <address>] [--tcp-port <port>] [--udp-port <port>] [--master-port <port>]`.
+- Client: `./r-type_client <master-ip> [--master-port <port>] [--server <name>]`.
+- Multiple game servers can run on one host with distinct names and ports. The client discovers them through the master and shows a server-selection menu.
 
 ## Responsibilities
 
 ### Master server
 
-Registry and discovery authority. Must:
+Registry and discovery authority. Implemented in `src/Master/`. Must:
 
 - accept and validate registrations;
 - key servers by unique name;
@@ -104,6 +111,8 @@ Registry is in-memory. After a master restart, servers must re-register. No pers
 
 ### Game server
 
+Implemented in `src/Server/`; registration and health responses live in `src/Server/MasterClient/`. Must:
+
 - persistent control connection to the master;
 - registers advertised address, ports, version, capacity;
 - answers health checks with a status snapshot;
@@ -125,6 +134,8 @@ Two flows.
 
 #### Discovery flow
 
+Implemented flow:
+
 ```mermaid
 sequenceDiagram
     participant C as Client
@@ -133,7 +144,7 @@ sequenceDiagram
 
     C->>M: SERVER_LIST_REQUEST(version)
     M-->>C: SERVER_LIST(healthy and joinable entries)
-    C->>C: Filter and optionally measure reachability or latency
+    C->>C: Show the server-selection menu
     C->>G: Connect to advertised gameplay endpoint
     G-->>C: WELCOME or connection rejection
 ```
@@ -141,6 +152,7 @@ sequenceDiagram
 - Must use the gameplay address/ports from the selected entry, not the master's.
 - Latency = hint only; not a reservation, not a guarantee.
 - No ping packet. TCP connect time is a coarse reachability measure; avoid repeated gameplay connections just to rank. Future ping command may add a side-effect-free measure.
+- The client retries discovery with a one-second delay when the master is unreachable, and offers a refresh action when the list is empty.
 
 #### Gameplay flow
 
@@ -182,14 +194,14 @@ sequenceDiagram
     G-->>C: ROOM_JOINED(room master and players) or ROOM_REJECTED
     G-->>C: ROOM_STATE(updated players) on membership changes
     C->>G: LAUNCH_GAME (room master only)
-    G-->>C: GAME_STARTED(room_id)
+    G-->>C: GAME_STARTED(room_id, gameplay_id)
 ```
 
 - Client sends `player_name` (8 ASCII bytes, same encoding/validation as `server_name`).
 - Server returns rooms with details: name, player count, max players, state, master name.
 - Client selects an existing room or creates one; server admits or rejects (full/closed).
 - Room master = first player to create/join. Owns room-level decisions; server stays final authority.
-- Max four players per room (matches player IDs `0`–`3`).
+- Max four players per room. Lobby player IDs are connection IDs (`0`–`63`); gameplay player IDs (`0`–`3`) are assigned per room when the game starts.
 - Only the room master can launch. The server broadcasts `GAME_STARTED` to the room.
 - Current limitation: the server has one four-player simulation, so only one room can be in game at a time. Other rooms stay in the lobby. Per-room simulations are future work.
 - Wire layouts: see [Lobby protocol](#lobby-protocol).
@@ -461,15 +473,16 @@ After discovery: connect to a server; the lobby exchange runs before gameplay. G
 1. Client binds an ephemeral local UDP port.
 2. Client opens TCP to the server's advertised gameplay TCP port.
 3. Sends the seven-byte `HELLO` with its local UDP port.
-4. Server validates the message and capacity, assigns a connection/player ID `0`–`3`, sends the five-byte `WELCOME`.
+4. Server validates the message and capacity, assigns a connection ID (`0`–`63`), sends the five-byte `WELCOME`.
 5. Client and server run the lobby exchange (`JOIN`, `ROOM_LIST`, `CREATE_ROOM`/`SELECT_ROOM`, `ROOM_JOINED`, `LAUNCH_GAME`, `GAME_STARTED`).
-6. After `GAME_STARTED`, the client sends 16-byte input datagrams to the advertised gameplay UDP port.
-7. Server advances its authoritative simulation at 60 Hz, sends scene snapshots to the registered client UDP endpoints in the active room.
-8. TCP close/loss → remove the player from the room, clear its input state.
+6. `GAME_STARTED` carries the room ID and the gameplay player ID (`0`–`3`) assigned to that client.
+7. After `GAME_STARTED`, the client sends 16-byte input datagrams to the advertised gameplay UDP port.
+8. Server advances its authoritative simulation at 60 Hz, sends scene snapshots to the registered client UDP endpoints in the active room.
+9. TCP close/loss → remove the player from the room, clear its input state.
 
 Steps 6–7 are current; planned: client simulates locally at the same rate (currently 60 Hz), server sends corrections at a lower rate (order of 30 Hz) instead of full snapshots.
 
-Current player ID range limits a session to four players, and the server currently runs one simulation, so only one room can be in game at a time. A server advertising more than four total players needs room-aware IDs or one four-player simulation per room.
+The server accepts up to 64 lobby connections. Each room is capped at four players, and gameplay player IDs `0`–`3` are assigned per room when it launches. The server currently runs one simulation, so only one room can be in game at a time. Per-room simulations are future work.
 
 ## Lobby protocol
 
@@ -578,7 +591,10 @@ Empty payload. Only the room master may send it.
 
 ```text
 u16  room_id
+u8   gameplay_id
 ```
+
+`gameplay_id` is the per-room player ID (`0`–`3`) the client uses for input.
 
 ### `LEAVE_ROOM` (`39`) and `ROOM_LEFT` (`40`)
 

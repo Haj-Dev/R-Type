@@ -1,5 +1,7 @@
 #include "LobbyUI.hpp"
 
+#include "Shared/ControlProtocol.hpp"
+
 #include <raylib.h>
 
 #include <cstddef>
@@ -57,6 +59,7 @@ void CLobbyUI::draw(IRenderSystem& renderer, const Lobby::SLobbyState& state,
 
     switch (state.phase) {
         case Lobby::eLobbyPhase::CONNECTING: drawConnecting(renderer); break;
+        case Lobby::eLobbyPhase::SERVER_SELECT: drawServerList(renderer, state, commands); break;
         case Lobby::eLobbyPhase::NAME_ENTRY: drawNameEntry(renderer, state, commands); break;
         case Lobby::eLobbyPhase::ROOM_LIST: drawRoomList(renderer, state, commands); break;
         case Lobby::eLobbyPhase::IN_ROOM: drawRoom(renderer, state, commands); break;
@@ -72,6 +75,47 @@ void CLobbyUI::drawConnecting(IRenderSystem& renderer) const {
     const std::string text = "Connecting to server...";
     renderer.drawText(text, (ScreenWidth - MeasureText(text.c_str(), 24)) / 2, ScreenHeight / 2, 24,
                       LightGray);
+}
+
+void CLobbyUI::drawServerList(IRenderSystem& renderer, const Lobby::SLobbyState& state,
+                              std::deque<Lobby::SCommand>& commands) {
+    renderer.drawText("Select a server", 20, 110, 30, White);
+
+    int y = 160;
+    if (state.servers.empty()) {
+        renderer.drawText("No compatible servers found.", 20, y, 20, Gray);
+        y += 40;
+    } else {
+        for (const auto& server : state.servers) {
+            const bool isHovered = hovered(20, y, ScreenWidth - 40, 60);
+            drawPanel(renderer, 20, y, ScreenWidth - 40, 60, isHovered ? PanelHoverColor : PanelColor,
+                      BorderColor);
+            const std::string line = server.name + "   " + server.address + ":" +
+                std::to_string(server.tcpPort) + "   " + std::to_string(server.connectedPlayers) + "/" +
+                std::to_string(server.maxPlayers) + " players   " + std::to_string(server.rooms) +
+                " rooms";
+            renderer.drawText(line, 30, y + 10, 20, White);
+            const std::string detail = "state: " +
+                std::string(server.state ==
+                                    static_cast<std::uint8_t>(Net::Control::eServerState::READY) ?
+                                "ready" :
+                                "unavailable") +
+                "   joinable rooms: " + std::to_string(server.joinableRooms);
+            renderer.drawText(detail, 30, y + 34, 16, LightGray);
+            if (isHovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                commands.push_back(Lobby::SCommand{
+                    .type = Lobby::eClientCommand::SELECT_SERVER,
+                    .text = server.name,
+                });
+            }
+            y += 70;
+        }
+    }
+
+    if (drawButton(renderer, 20, y + 10, 140, 44, "Refresh"))
+        commands.push_back(Lobby::SCommand{.type = Lobby::eClientCommand::REFRESH_SERVERS, .text = {}});
+
+    renderer.drawText("Click a server to connect.", 20, ScreenHeight - 70, 18, Gray);
 }
 
 void CLobbyUI::drawNameEntry(IRenderSystem& renderer, const Lobby::SLobbyState& state,

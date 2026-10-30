@@ -9,7 +9,7 @@ This document describes the network protocol of the part 1 of the project.
 The protocol has two phases:
 
 1. A reliable TCP handshake establishes the client's gameplay endpoint and
-   assigns a player ID.
+   assigns a connection ID.
 2. Gameplay data is exchanged as UDP datagrams. Clients send input; the server
    sends authoritative scene snapshots.
 
@@ -118,13 +118,14 @@ The server replies with exactly five bytes:
 | ---: | ---: | --- |
 | 0 | 3 bytes | Magic: `H`, `A`, `J` |
 | 3 | 1 byte | Welcome type: `3` (`WELCOME`) |
-| 4 | 1 byte | Assigned player ID |
+| 4 | 1 byte | Assigned connection ID |
 
-The player ID must be in the range `0` through `3`. The welcome message has
-no UDP terminator.
+The connection ID is an unsigned byte. The server currently assigns IDs in the
+range `0` through `63`. The per-room gameplay player ID (`0`–`3`) is assigned
+later in `GAME_STARTED`. The welcome message has no UDP terminator.
 
 After sending the welcome, the server associates the TCP peer address and the
-advertised UDP port with the assigned player ID.
+advertised UDP port with the assigned connection ID.
 
 ## Lobby phase
 
@@ -153,8 +154,9 @@ Their payload layouts are documented in
 
 A room holds at most four players. The first player to create or join a room is
 its master; only the master may send `LAUNCH_GAME`. The server answers with
-`GAME_STARTED` to every room member. Until then, the client shows the room and
-waits for the master.
+`GAME_STARTED` to every room member, carrying the room ID and the per-room
+gameplay player ID (`0`–`3`) that client uses for input. Until then, the client
+shows the room and waits for the master.
 
 ## Packet and command types
 
@@ -278,7 +280,7 @@ Client                                      Server
   |--- JOIN / CREATE_ROOM / SELECT_ROOM ----->|
   |<-- ROOM_LIST / ROOM_JOINED / ROOM_STATE --|
   |--- LAUNCH_GAME (room master) ------------>|
-  |<-- GAME_STARTED ---------------------------|
+  |<-- GAME_STARTED(room_id, gameplay_id) ----|
   |                                           |
   |--- UDP input to port 7001 --------------->|
   |                                           |
