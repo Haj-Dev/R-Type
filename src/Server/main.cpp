@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
                                     .serverName        = options.serverName,
                                     .advertisedAddress = options.advertisedAddress,
                                     .maxPlayers        = Room::MaxConnections,
-                                });
+                       });
 
         std::cout << "[Server] Running. Ctrl+C to stop.\n";
         while (true)
