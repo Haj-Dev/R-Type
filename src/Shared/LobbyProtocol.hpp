@@ -31,6 +31,7 @@ namespace Net {
         ROOM_LIST_REQUEST = 41,
         CHAT_SEND         = 42,
         CHAT_MESSAGE      = 43,
+        SPECTATE_ROOM     = 44,
     };
 
     [[nodiscard]] inline bool validRoomName(const std::string& name) {
@@ -154,17 +155,44 @@ namespace Net {
         return true;
     }
 
+    // Spectators are encoded exactly like players: u8 id followed by the player name.
+    inline void appendRoomMembers(std::vector<std::uint8_t>&        payload,
+                                  const std::vector<Room::SPlayer>& members) {
+        payload.push_back(static_cast<std::uint8_t>(members.size()));
+        for (const auto& member : members) {
+            payload.push_back(member.id);
+            appendName(payload, member.name);
+        }
+    }
+
+    [[nodiscard]] inline bool readRoomMembers(const std::uint8_t* payload, std::size_t size,
+                                              std::size_t&                offset,
+                                              std::vector<Room::SPlayer>& members) {
+        if (offset + 1 > size)
+            return false;
+        const auto count = payload[offset++];
+        members.clear();
+        members.reserve(count);
+        for (std::uint8_t index = 0; index < count; ++index) {
+            Room::SPlayer member;
+            if (offset + 1 > size)
+                return false;
+            member.id = payload[offset++];
+            if (!readName(payload, size, offset, member.name))
+                return false;
+            members.push_back(std::move(member));
+        }
+        return true;
+    }
+
     inline std::vector<std::uint8_t> makeRoomInfo(eLobbyCommand command, const Room::SInfo& room) {
         std::vector<std::uint8_t> payload;
         appendU16BE(payload, room.id);
         appendShortString(payload, room.name);
         payload.push_back(static_cast<std::uint8_t>(room.state));
         payload.push_back(room.masterId);
-        payload.push_back(static_cast<std::uint8_t>(room.players.size()));
-        for (const auto& player : room.players) {
-            payload.push_back(player.id);
-            appendName(payload, player.name);
-        }
+        appendRoomMembers(payload, room.players);
+        appendRoomMembers(payload, room.spectators);
         return makeLobbyFrame(command, payload);
     }
 
@@ -177,23 +205,12 @@ namespace Net {
         offset += 2;
         if (!readShortString(payload, size, offset, room.name))
             return false;
-        if (offset + 3 > size)
+        if (offset + 2 > size)
             return false;
-        room.state       = static_cast<Room::eState>(payload[offset++]);
-        room.masterId    = payload[offset++];
-        const auto count = payload[offset++];
-        room.players.clear();
-        room.players.reserve(count);
-        for (std::uint8_t index = 0; index < count; ++index) {
-            Room::SPlayer player;
-            if (offset + 1 > size)
-                return false;
-            player.id = payload[offset++];
-            if (!readName(payload, size, offset, player.name))
-                return false;
-            room.players.push_back(std::move(player));
-        }
-        return offset == size;
+        room.state    = static_cast<Room::eState>(payload[offset++]);
+        room.masterId = payload[offset++];
+        return readRoomMembers(payload, size, offset, room.players) &&
+            readRoomMembers(payload, size, offset, room.spectators) && offset == size;
     }
 
     inline std::vector<std::uint8_t> makeRoomRejected(Room::eRejectReason reason,
@@ -211,6 +228,18 @@ namespace Net {
         reason             = static_cast<Room::eRejectReason>(payload[0]);
         std::size_t offset = 1;
         return readShortString(payload, size, offset, message) && offset == size;
+    }
+
+    // Same payload as SELECT_ROOM, but the client joins as a spectator.
+    inline std::vector<std::uint8_t> makeSpectateRoom(std::uint16_t roomId) {
+        std::vector<std::uint8_t> payload;
+        appendU16BE(payload, roomId);
+        return makeLobbyFrame(eLobbyCommand::SPECTATE_ROOM, payload);
+    }
+
+    [[nodiscard]] inline bool readSpectateRoom(const std::uint8_t* payload, std::size_t size,
+                                               std::uint16_t& roomId) {
+        return readSelectRoom(payload, size, roomId);
     }
 
     inline std::vector<std::uint8_t> makeLaunchGame() {
@@ -234,7 +263,7 @@ namespace Net {
             return false;
         roomId     = readU16BE(payload);
         gameplayId = payload[2];
-        return gameplayId < SPLayerActions::MaxPlayers;
+        return gameplayId < SPLayerActions::MaxPlayers || gameplayId == Room::SpectatorGameplayId;
     }
 
     inline std::vector<std::uint8_t> makeLeaveRoom() {

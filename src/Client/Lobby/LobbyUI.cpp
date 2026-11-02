@@ -153,7 +153,12 @@ void CLobbyUI::drawRoomList(IRenderSystem& renderer, const Lobby::SLobbyState& s
         y += 40;
     } else {
         for (const auto& room : state.rooms) {
-            const bool isHovered = hovered(20, y, ScreenWidth - 40, 50);
+            constexpr int spectateWidth  = 120;
+            constexpr int spectateHeight = 34;
+            const int     spectateX      = ScreenWidth - 20 - spectateWidth - 10;
+            const int     spectateY      = y + ((50 - spectateHeight) / 2);
+            const bool    overSpectate   = hovered(spectateX, spectateY, spectateWidth, spectateHeight);
+            const bool    isHovered      = hovered(20, y, ScreenWidth - 40, 50) && !overSpectate;
             drawPanel(renderer, 20, y, ScreenWidth - 40, 50, isHovered ? PanelHoverColor : PanelColor,
                       BorderColor);
             const std::string line = room.name + "   " + std::to_string(room.playerCount) + "/" +
@@ -161,6 +166,13 @@ void CLobbyUI::drawRoomList(IRenderSystem& renderer, const Lobby::SLobbyState& s
                 (room.state == Room::eState::WAITING ? "waiting" : "in game") +
                 "   leader: " + room.masterName;
             renderer.drawText(line, 30, y + 15, 20, White);
+            if (drawButton(renderer, spectateX, spectateY, spectateWidth, spectateHeight, "Spectate")) {
+                commands.push_back(Lobby::SCommand{
+                    .type   = Lobby::eClientCommand::SPECTATE_ROOM,
+                    .text   = {},
+                    .roomId = room.id,
+                });
+            }
             const bool selectable =
                 room.state == Room::eState::WAITING && room.playerCount < room.maxPlayers;
             if (isHovered && selectable && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
@@ -195,7 +207,8 @@ void CLobbyUI::drawRoomList(IRenderSystem& renderer, const Lobby::SLobbyState& s
                 Lobby::SCommand{.type = Lobby::eClientCommand::REFRESH_ROOMS, .text = {}});
     }
 
-    renderer.drawText("Click a room to join it.", 20, ScreenHeight - 70, 18, Gray);
+    renderer.drawText("Click a room to join it, or Spectate to watch without a character.", 20,
+                      ScreenHeight - 70, 18, Gray);
 }
 
 void CLobbyUI::drawRoom(IRenderSystem& renderer, const Lobby::SLobbyState& state,
@@ -216,8 +229,23 @@ void CLobbyUI::drawRoom(IRenderSystem& renderer, const Lobby::SLobbyState& state
         y += 32;
     }
 
+    if (!room.spectators.empty()) {
+        y += 8;
+        renderer.drawText("Spectators (" + std::to_string(room.spectators.size()) + ")", 30, y, 20,
+                          LightGray);
+        y += 28;
+        for (const auto& spectator : room.spectators) {
+            renderer.drawText(spectator.name + (spectator.id == state.playerId ? "  (you)" : ""), 40, y,
+                              18, Gray);
+            y += 24;
+        }
+    }
+
     const bool isMaster = room.masterId == state.playerId;
-    if (isMaster) {
+    if (Lobby::isSpectating(state)) {
+        renderer.drawText("You are spectating. You will watch the game when the leader launches it...",
+                          20, y + 40, 20, LightGray);
+    } else if (isMaster) {
         if (drawButton(renderer, 20, y + 30, 200, 50, "Launch Game"))
             commands.push_back(Lobby::SCommand{.type = Lobby::eClientCommand::LAUNCH_GAME, .text = {}});
     } else {
@@ -231,6 +259,12 @@ void CLobbyUI::drawRoom(IRenderSystem& renderer, const Lobby::SLobbyState& state
     renderer.drawText("Room state: " +
                           std::string(room.state == Room::eState::WAITING ? "waiting" : "in game"),
                       20, ScreenHeight - 70, 18, Gray);
+}
+
+void CLobbyUI::drawSpectatorHud(IRenderSystem& renderer, std::deque<Lobby::SCommand>& commands) const {
+    renderer.drawText("Spectating - you have no ship", 20, 20, 20, White);
+    if (drawButton(renderer, 20, 55, 140, 44, "Leave Room"))
+        commands.push_back(Lobby::SCommand{.type = Lobby::eClientCommand::LEAVE_ROOM, .text = {}});
 }
 
 void CLobbyUI::drawError(IRenderSystem& renderer, const Lobby::SLobbyState& state) const {

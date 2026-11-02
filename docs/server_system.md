@@ -165,7 +165,7 @@ flowchart TD
     C --> D{Valid HELLO and a free player slot?}
     D -- No --> E[Close TCP connection without WELCOME]
     D -- Yes --> F[Send WELCOME containing the player ID]
-    F --> G[Send latest input state over UDP]
+    F --> G[Send latest input state over UDP if not spectator]
     G --> H[Validate source endpoint and packet]
     H --> I[Run authoritative simulation]
     I --> J[Send scene snapshot over UDP]
@@ -518,6 +518,7 @@ The lobby runs on the gameplay TCP connection after the seven-byte `HELLO` / fiv
 | `41` | `ROOM_LIST_REQUEST` | Client to server |
 | `42` | `CHAT_SEND` | Client to server |
 | `43` | `CHAT_MESSAGE` | Server to client |
+| `44` | `Spectator` | Client to server |
 
 ### `JOIN` (`30`)
 
@@ -619,6 +620,12 @@ u32 + bytes   text             1–120 printable ASCII bytes
 The client sends `CHAT_SEND` with only `text` filled in. The sender must be in a room, otherwise the server answers `ROOM_REJECTED` (`NOT_IN_ROOM`). The server stamps `sender_id`, `sender` (the player name) and an increasing `sequence`, then broadcasts it as `CHAT_MESSAGE` to every member of the sender's room, including the sender, so every client displays the same history. The chat is available in the lobby room and during the game.
 
 On the client, each received message becomes an entity owning an `SCChatMessage` in the chat registry (`Lobby::SLobbyState::chat`), next to a single entity owning the local `SCChatInput` typing state. `Chat::CChatSystem` (`src/Shared/Systems/ChatSystem.hpp`) keeps the last 50 messages ordered by `sequence`; `CChatUI` only draws them.
+
+### `SPECTATE` (`44`)
+
+```text
+u16  room_id
+```
 
 ## Failure handling
 

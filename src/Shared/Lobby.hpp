@@ -2,6 +2,7 @@
 
 #include "Shared/ECS/ECS.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -12,6 +13,9 @@
 namespace Room {
 
     inline constexpr std::uint8_t  MaxPlayersPerRoom   = 4;
+    inline constexpr std::uint8_t  MaxSpectatorsPerRoom = 16;
+    // Sent as the gameplay ID of a spectator in GAME_STARTED: it has no ship and no input slot.
+    inline constexpr std::uint8_t  SpectatorGameplayId = 0xFF;
     inline constexpr std::size_t   MaxConnections      = 64;
     inline constexpr std::uint16_t MaxRooms            = 64;
     inline constexpr std::size_t   MaxPlayerNameLength = 8;
@@ -61,6 +65,7 @@ namespace Room {
         eState               state    = eState::WAITING;
         std::uint8_t         masterId = 0;
         std::vector<SPlayer> players;
+        std::vector<SPlayer> spectators;
     };
 
     inline SResult success() {
@@ -95,6 +100,7 @@ namespace Lobby {
         SELECT_SERVER,
         REFRESH_SERVERS,
         SEND_CHAT,
+        SPECTATE_ROOM,
     };
 
     struct SCommand {
@@ -127,5 +133,13 @@ namespace Lobby {
         Ecs::CRegistry              chat; // chat messages and typing state, see Chat::CChatSystem
         std::string                 message;
     };
+
+    // True when this client is in a room as a spectator (watching without a character).
+    [[nodiscard]] inline bool isSpectating(const SLobbyState& state) {
+        return state.currentRoom &&
+            std::ranges::any_of(state.currentRoom->spectators, [&state](const Room::SPlayer& spectator) {
+                   return spectator.id == state.playerId;
+               });
+    }
 
 } // namespace Lobby

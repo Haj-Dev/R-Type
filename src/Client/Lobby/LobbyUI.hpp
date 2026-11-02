@@ -12,6 +12,9 @@ class CLobbyUI {
     void draw(IRenderSystem& renderer, const Lobby::SLobbyState& state,
               std::deque<Lobby::SCommand>& commands);
 
+    // In-game overlay for spectators: a label and a button to leave the room.
+    void drawSpectatorHud(IRenderSystem& renderer, std::deque<Lobby::SCommand>& commands) const;
+
   private:
     void               drawConnecting(IRenderSystem& renderer) const;
     void               drawServerList(IRenderSystem& renderer, const Lobby::SLobbyState& state,
