@@ -134,6 +134,9 @@ void CServerNetworkThread::run() {
             if (type == Net::ePacketType::INPUT && client != mClients.end()) {
                 const auto connectionId =
                     static_cast<std::uint8_t>(std::distance(mClients.begin(), client));
+                // Spectators have no character: whatever they send over UDP is dropped unread.
+                if (mRoomManager.isSpectator(connectionId))
+                    continue;
                 const auto gameplayId = mConnectionGameplayIds.at(connectionId);
                 if (!gameplayId)
                     continue;
@@ -159,7 +162,7 @@ void CServerNetworkThread::run() {
                 std::scoped_lock lock(mtex);
                 snapshot = Net::makeSnapshot(mSceneData);
             }
-            for (const auto playerId : mRoomManager.playersInRoom(*activeRoom)) {
+            for (const auto playerId : mRoomManager.occupantsInRoom(*activeRoom)) {
                 if (playerId < mClients.size() && !mClients.at(playerId).address().is_unspecified())
                     mSocket.send_to(asio::buffer(snapshot), mClients.at(playerId));
             }
@@ -217,6 +220,21 @@ void CServerNetworkThread::processLobby(std::uint8_t playerId) {
 
 void CServerNetworkThread::handleLobbyCommand(std::uint8_t playerId, Net::eLobbyCommand command,
                                               const std::uint8_t* payload, std::size_t payloadSize) {
+    // A spectator watching a running game may only chat or leave. Every other command it
+    // sends is ignored without a reply: it has no character to act with and must not
+    // change the room (launching, joining another room, ...) from the audience.
+    if (spectatingActiveGame(playerId)) {
+        switch (command) {
+            case Net::eLobbyCommand::JOIN:
+            case Net::eLobbyCommand::ROOM_LIST_REQUEST:
+            case Net::eLobbyCommand::CREATE_ROOM:
+            case Net::eLobbyCommand::SELECT_ROOM:
+            case Net::eLobbyCommand::SPECTATE_ROOM:
+            case Net::eLobbyCommand::LAUNCH_GAME: return;
+            default: break;
+        }
+    }
+
     switch (command) {
         case Net::eLobbyCommand::JOIN: {
             std::string name;
@@ -278,12 +296,37 @@ void CServerNetworkThread::handleLobbyCommand(std::uint8_t playerId, Net::eLobby
             }
             return;
         }
+        case Net::eLobbyCommand::SPECTATE_ROOM: {
+            std::uint16_t roomId = 0;
+            if (!Net::readSpectateRoom(payload, payloadSize, roomId)) {
+                sendRejection(playerId, Room::eRejectReason::ROOM_NOT_FOUND, "Invalid room selection");
+                return;
+            }
+            const auto result = mRoomManager.spectateRoom(playerId, roomId);
+            if (!result.ok) {
+                sendRejection(playerId, result.reason, result.message);
+                return;
+            }
+            updateServerStatus();
+            const auto room = mRoomManager.roomOfPlayer(playerId);
+            if (room) {
+                sendRoomInfo(playerId, Net::eLobbyCommand::ROOM_JOINED, *room);
+                broadcastRoom(roomId, Net::makeRoomInfo(Net::eLobbyCommand::ROOM_STATE, *room),
+                              playerId);
+                // Joining a running game: go straight to watching it.
+                if (room->state == Room::eState::IN_GAME)
+                    sendFrame(playerId, Net::makeGameStarted(roomId, Room::SpectatorGameplayId));
+            }
+            return;
+        }
         case Net::eLobbyCommand::LEAVE_ROOM: {
             if (!Net::readLeaveRoom(payload, payloadSize)) {
                 sendRejection(playerId, Room::eRejectReason::SERVER_ERROR, "Invalid leave request");
                 return;
             }
             const auto roomId = mRoomManager.roomIdOfPlayer(playerId);
+            auto       spectators =
+                roomId ? mRoomManager.spectatorsInRoom(*roomId) : std::vector<std::uint8_t>{};
             const auto result = mRoomManager.leaveRoom(playerId);
             if (!result.ok) {
                 sendRejection(playerId, result.reason, result.message);
@@ -306,6 +349,7 @@ void CServerNetworkThread::handleLobbyCommand(std::uint8_t playerId, Net::eLobby
                 if (room)
                     broadcastRoom(*roomId, Net::makeRoomInfo(Net::eLobbyCommand::ROOM_STATE, *room));
             }
+            releaseOrphanedSpectators(spectators, playerId);
             if (!mRoomManager.activeRoom())
                 mGameActive.store(false);
             return;
@@ -338,9 +382,11 @@ void CServerNetworkThread::handleLobbyCommand(std::uint8_t playerId, Net::eLobby
                 }
                 ++gameplayId;
             }
+            for (const auto& spectator : room->spectators)
+                sendFrame(spectator.id, Net::makeGameStarted(*roomId, Room::SpectatorGameplayId));
             mGameActive.store(true);
             std::cout << "[Server] Room " << *roomId << " launched with " << room->players.size()
-                      << " player(s)\n";
+                      << " player(s) and " << room->spectators.size() << " spectator(s)\n";
             return;
         }
         case Net::eLobbyCommand::CHAT_SEND: {
@@ -410,10 +456,25 @@ void CServerNetworkThread::sendRejection(std::uint8_t playerId, Room::eRejectRea
 
 void CServerNetworkThread::broadcastRoom(std::uint16_t roomId, const std::vector<std::uint8_t>& frame,
                                          std::optional<std::uint8_t> except) {
-    for (const auto playerId : mRoomManager.playersInRoom(roomId)) {
+    for (const auto playerId : mRoomManager.occupantsInRoom(roomId)) {
         if (except && *except == playerId)
             continue;
         sendFrame(playerId, frame);
+    }
+}
+
+bool CServerNetworkThread::spectatingActiveGame(std::uint8_t playerId) const {
+    const auto roomId = mRoomManager.roomIdOfPlayer(playerId);
+    return roomId && mRoomManager.isSpectator(playerId) && mRoomManager.activeRoom() == roomId;
+}
+
+void CServerNetworkThread::releaseOrphanedSpectators(const std::vector<std::uint8_t>& spectators,
+                                                     std::uint8_t                     except) {
+    for (const auto spectatorId : spectators) {
+        if (spectatorId == except || mRoomManager.roomIdOfPlayer(spectatorId))
+            continue;
+        sendFrame(spectatorId, Net::makeRoomLeft());
+        sendRoomList(spectatorId);
     }
 }
 
@@ -421,6 +482,7 @@ void CServerNetworkThread::disconnectPlayer(std::uint8_t playerId) {
     if (playerId >= mControlSockets.size())
         return;
     const auto roomId = mRoomManager.roomIdOfPlayer(playerId);
+    auto spectators   = roomId ? mRoomManager.spectatorsInRoom(*roomId) : std::vector<std::uint8_t>{};
     mRoomManager.removePlayer(playerId);
     updateServerStatus();
     {
@@ -444,6 +506,7 @@ void CServerNetworkThread::disconnectPlayer(std::uint8_t playerId) {
         if (room)
             broadcastRoom(*roomId, Net::makeRoomInfo(Net::eLobbyCommand::ROOM_STATE, *room));
     }
+    releaseOrphanedSpectators(spectators, playerId);
     if (!mRoomManager.activeRoom())
         mGameActive.store(false);
     std::cerr << "[Server] Player " << static_cast<unsigned>(playerId) << " disconnected\n";

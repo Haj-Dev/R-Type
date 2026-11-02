@@ -77,6 +77,7 @@ class CNetworkThread {
     std::uint8_t                 mGameplayId = 0;
     std::atomic_bool             mConnected  = false;
     std::vector<std::uint8_t>    mTcpBuffer;
-    bool                         mInGame = false;
+    bool                         mInGame     = false;
+    bool                         mSpectating = false;
     Chat::CChatSystem            mChatSystem;
 };

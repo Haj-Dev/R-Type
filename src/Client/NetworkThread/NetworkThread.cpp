@@ -266,7 +266,9 @@ void CNetworkThread::runGameSession() {
         processLobbyCommands();
         processLobbyMessages();
         if (mInGame) {
-            sendInput();
+            // A spectator has no character, so it sends nothing and only listens.
+            if (!mSpectating)
+                sendInput();
             receiveSnapshots(buffer);
         }
         std::unique_lock lock(mtex);
@@ -298,6 +300,9 @@ void CNetworkThread::processLobbyCommands() {
                 break;
             case Lobby::eClientCommand::SELECT_ROOM:
                 sendLobbyFrame(Net::makeSelectRoom(command.roomId));
+                break;
+            case Lobby::eClientCommand::SPECTATE_ROOM:
+                sendLobbyFrame(Net::makeSpectateRoom(command.roomId));
                 break;
             case Lobby::eClientCommand::LAUNCH_GAME: sendLobbyFrame(Net::makeLaunchGame()); break;
             case Lobby::eClientCommand::LEAVE_ROOM: sendLobbyFrame(Net::makeLeaveRoom()); break;
@@ -389,6 +394,7 @@ void CNetworkThread::handleLobbyMessage(Net::eLobbyCommand command, const std::u
             if (!Net::readRoomLeft(payload, payloadSize))
                 throw std::runtime_error("invalid room left");
             mInGame     = false;
+            mSpectating = false;
             mGameplayId = 0;
             std::scoped_lock lock(mtex);
             mLobbyState.currentRoom.reset();
@@ -410,13 +416,17 @@ void CNetworkThread::handleLobbyMessage(Net::eLobbyCommand command, const std::u
             std::uint8_t  gameplayId = 0;
             if (!Net::readGameStarted(payload, payloadSize, roomId, gameplayId))
                 throw std::runtime_error("invalid game start");
-            mGameplayId = gameplayId;
+            mSpectating = gameplayId == Room::SpectatorGameplayId;
+            if (!mSpectating)
+                mGameplayId = gameplayId;
             {
                 std::scoped_lock lock(mtex);
                 mLobbyState.phase = Lobby::eLobbyPhase::IN_GAME;
                 mPlayerActions.connected.fill(false);
-                mPlayerActions.connected.at(mGameplayId) = true;
-                mPlayerActions.states.at(mGameplayId)    = SPlayerActionState{};
+                if (!mSpectating) {
+                    mPlayerActions.connected.at(mGameplayId) = true;
+                    mPlayerActions.states.at(mGameplayId)    = SPlayerActionState{};
+                }
             }
             mInGame = true;
             mStopCondition.notify_all();
