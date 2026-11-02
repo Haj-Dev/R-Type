@@ -66,6 +66,21 @@ Room::SResult CRoomManager::joinRoom(std::uint8_t playerId, std::uint16_t roomId
     return Room::success();
 }
 
+Room::SResult CRoomManager::spectateRoom(std::uint8_t playerId, std::uint16_t roomId) {
+    if (!validPlayerId(playerId) || !hasPlayer(playerId))
+        return Room::failure(Room::eRejectReason::INVALID_NAME, "Join the lobby first");
+    if (mPlayerRooms.at(playerId))
+        return Room::failure(Room::eRejectReason::ALREADY_IN_ROOM, "You are already in a room");
+    auto* room = findRoom(roomId);
+    if (room == nullptr)
+        return Room::failure(Room::eRejectReason::ROOM_NOT_FOUND, "Room not found");
+    if (room->spectators.size() >= Room::MaxSpectatorsPerRoom)
+        return Room::failure(Room::eRejectReason::ROOM_FULL, "That room has no spectator slots left");
+    room->spectators.push_back(playerId);
+    mPlayerRooms.at(playerId) = roomId;
+    return Room::success();
+}
+
 Room::SResult CRoomManager::leaveRoom(std::uint8_t playerId) {
     if (!validPlayerId(playerId))
         return Room::failure(Room::eRejectReason::NOT_IN_ROOM, "Invalid player id");
@@ -77,8 +92,15 @@ Room::SResult CRoomManager::leaveRoom(std::uint8_t playerId) {
     if (room == nullptr)
         return Room::success();
 
+    if (std::erase(room->spectators, playerId) > 0)
+        return Room::success();
+
     std::erase(room->players, playerId);
     if (room->players.empty()) {
+        // Without players there is nothing left to lead or watch: the room closes and its
+        // spectators are put back in the lobby.
+        for (const auto spectatorId : room->spectators)
+            mPlayerRooms.at(spectatorId).reset();
         removeRoom(room->id);
         return Room::success();
     }
@@ -96,6 +118,8 @@ Room::SResult CRoomManager::launch(std::uint8_t playerId) {
     auto* room = findRoom(*roomId);
     if (room == nullptr)
         return Room::failure(Room::eRejectReason::ROOM_NOT_FOUND, "Room not found");
+    if (std::ranges::find(room->spectators, playerId) != room->spectators.end())
+        return Room::failure(Room::eRejectReason::NOT_MASTER, "Spectators cannot launch the game");
     if (room->masterId != playerId)
         return Room::failure(Room::eRejectReason::NOT_MASTER,
                              "Only the room leader can launch the game");
@@ -162,6 +186,30 @@ std::vector<std::uint8_t> CRoomManager::playersInRoom(std::uint16_t roomId) cons
     return room->players;
 }
 
+std::vector<std::uint8_t> CRoomManager::spectatorsInRoom(std::uint16_t roomId) const {
+    const auto* room = findRoom(roomId);
+    if (room == nullptr)
+        return {};
+    return room->spectators;
+}
+
+std::vector<std::uint8_t> CRoomManager::occupantsInRoom(std::uint16_t roomId) const {
+    const auto* room = findRoom(roomId);
+    if (room == nullptr)
+        return {};
+    auto occupants = room->players;
+    occupants.insert(occupants.end(), room->spectators.begin(), room->spectators.end());
+    return occupants;
+}
+
+bool CRoomManager::isSpectator(std::uint8_t playerId) const {
+    const auto roomId = roomIdOfPlayer(playerId);
+    if (!roomId)
+        return false;
+    const auto* room = findRoom(*roomId);
+    return room != nullptr && std::ranges::find(room->spectators, playerId) != room->spectators.end();
+}
+
 bool CRoomManager::isMaster(std::uint8_t playerId) const {
     const auto roomId = roomIdOfPlayer(playerId);
     if (!roomId)
@@ -223,6 +271,13 @@ Room::SInfo CRoomManager::makeInfo(const SRoom& room) const {
         info.players.push_back(Room::SPlayer{
             .id   = playerId,
             .name = mPlayerNames.at(playerId),
+        });
+    }
+    info.spectators.reserve(room.spectators.size());
+    for (const auto spectatorId : room.spectators) {
+        info.spectators.push_back(Room::SPlayer{
+            .id   = spectatorId,
+            .name = mPlayerNames.at(spectatorId),
         });
     }
     return info;

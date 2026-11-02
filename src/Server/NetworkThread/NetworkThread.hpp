@@ -45,6 +45,9 @@ class CServerNetworkThread {
     void sendRejection(std::uint8_t playerId, Room::eRejectReason reason, const std::string& message);
     void broadcastRoom(std::uint16_t roomId, const std::vector<std::uint8_t>& frame,
                        std::optional<std::uint8_t> except = std::nullopt);
+    [[nodiscard]] bool spectatingActiveGame(std::uint8_t playerId) const;
+    // Tells spectators whose room closed (its last player left) that they are back in the lobby.
+    void releaseOrphanedSpectators(const std::vector<std::uint8_t>& spectators, std::uint8_t except);
     void disconnectPlayer(std::uint8_t playerId);
     void updateServerStatus();
 
