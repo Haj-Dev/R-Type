@@ -12,8 +12,8 @@
 
 namespace Room {
 
-    inline constexpr std::uint8_t  MaxPlayersPerRoom   = 4;
-    inline constexpr std::uint8_t  MaxSpectatorsPerRoom = 16;
+    inline constexpr std::uint8_t MaxPlayersPerRoom    = 4;
+    inline constexpr std::uint8_t MaxSpectatorsPerRoom = 16;
     // Sent as the gameplay ID of a spectator in GAME_STARTED: it has no ship and no input slot.
     inline constexpr std::uint8_t  SpectatorGameplayId = 0xFF;
     inline constexpr std::size_t   MaxConnections      = 64;

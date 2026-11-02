@@ -166,8 +166,7 @@ namespace Net {
     }
 
     [[nodiscard]] inline bool readRoomMembers(const std::uint8_t* payload, std::size_t size,
-                                              std::size_t&                offset,
-                                              std::vector<Room::SPlayer>& members) {
+                                              std::size_t& offset, std::vector<Room::SPlayer>& members) {
         if (offset + 1 > size)
             return false;
         const auto count = payload[offset++];

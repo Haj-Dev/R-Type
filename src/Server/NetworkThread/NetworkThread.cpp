@@ -324,10 +324,10 @@ void CServerNetworkThread::handleLobbyCommand(std::uint8_t playerId, Net::eLobby
                 sendRejection(playerId, Room::eRejectReason::SERVER_ERROR, "Invalid leave request");
                 return;
             }
-            const auto roomId     = mRoomManager.roomIdOfPlayer(playerId);
-            auto       spectators = roomId ? mRoomManager.spectatorsInRoom(*roomId) :
-                                             std::vector<std::uint8_t>{};
-            const auto result     = mRoomManager.leaveRoom(playerId);
+            const auto roomId = mRoomManager.roomIdOfPlayer(playerId);
+            auto       spectators =
+                roomId ? mRoomManager.spectatorsInRoom(*roomId) : std::vector<std::uint8_t>{};
+            const auto result = mRoomManager.leaveRoom(playerId);
             if (!result.ok) {
                 sendRejection(playerId, result.reason, result.message);
                 return;
@@ -481,8 +481,8 @@ void CServerNetworkThread::releaseOrphanedSpectators(const std::vector<std::uint
 void CServerNetworkThread::disconnectPlayer(std::uint8_t playerId) {
     if (playerId >= mControlSockets.size())
         return;
-    const auto roomId     = mRoomManager.roomIdOfPlayer(playerId);
-    auto       spectators = roomId ? mRoomManager.spectatorsInRoom(*roomId) : std::vector<std::uint8_t>{};
+    const auto roomId = mRoomManager.roomIdOfPlayer(playerId);
+    auto spectators   = roomId ? mRoomManager.spectatorsInRoom(*roomId) : std::vector<std::uint8_t>{};
     mRoomManager.removePlayer(playerId);
     updateServerStatus();
     {
