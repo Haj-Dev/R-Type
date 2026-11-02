@@ -88,7 +88,8 @@ void CDrawThread::run() {
             {
                 std::scoped_lock lock(mtex);
                 if (spectating)
-                    mLobbyUI.drawSpectatorHud(mRenderSystem, mLobbyCommands);
+                    mLobbyUI.drawSpectatorHud(mRenderSystem);
+                mLobbyUI.drawLeaveButton(mRenderSystem, mLobbyCommands);
                 mChatUI.draw(mRenderSystem, mLobbyState, mLobbyCommands);
             }
         }

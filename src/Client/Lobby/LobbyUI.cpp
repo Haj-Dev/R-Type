@@ -1,6 +1,7 @@
 #include "LobbyUI.hpp"
 
 #include "Shared/ControlProtocol.hpp"
+#include "Shared/Systems/IRenderSystem.hpp"
 
 #include <raylib.h>
 
@@ -261,8 +262,11 @@ void CLobbyUI::drawRoom(IRenderSystem& renderer, const Lobby::SLobbyState& state
                       20, ScreenHeight - 70, 18, Gray);
 }
 
-void CLobbyUI::drawSpectatorHud(IRenderSystem& renderer, std::deque<Lobby::SCommand>& commands) const {
+void CLobbyUI::drawSpectatorHud(IRenderSystem& renderer) const {
     renderer.drawText("Spectating - you have no ship", 20, 20, 20, White);
+}
+
+void CLobbyUI::drawLeaveButton(IRenderSystem& renderer, std::deque<Lobby::SCommand>& commands) const {
     if (drawButton(renderer, 20, 55, 140, 44, "Leave Room"))
         commands.push_back(Lobby::SCommand{.type = Lobby::eClientCommand::LEAVE_ROOM, .text = {}});
 }

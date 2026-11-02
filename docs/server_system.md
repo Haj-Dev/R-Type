@@ -518,7 +518,7 @@ The lobby runs on the gameplay TCP connection after the seven-byte `HELLO` / fiv
 | `41` | `ROOM_LIST_REQUEST` | Client to server |
 | `42` | `CHAT_SEND` | Client to server |
 | `43` | `CHAT_MESSAGE` | Server to client |
-| `44` | `Spectator` | Client to server |
+| `44` | `SPECTATE` | Client to server |
 
 ### `JOIN` (`30`)
 
