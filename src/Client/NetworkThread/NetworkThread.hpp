@@ -71,8 +71,10 @@ class CNetworkThread {
     std::deque<Lobby::SCommand>& mLobbyCommands;
     std::thread                  mThread;
     asio::ip::udp::socket        mSocket;
+    asio::ip::udp::socket        mVoiceSocket;
     asio::ip::tcp::socket        mTcpSocket;
     asio::ip::udp::endpoint      mServerEndpoint;
+    asio::ip::udp::endpoint      mVoiceServerEndpoint;
     std::uint8_t                 mPlayerId   = 0;
     std::uint8_t                 mGameplayId = 0;
     std::atomic_bool             mConnected  = false;

@@ -84,6 +84,14 @@ CPMAddPackage(
   DOWNLOAD_ONLY YES
 )
 
+CPMAddPackage(
+  NAME miniaudio
+  GITHUB_REPOSITORY mackron/miniaudio
+  GIT_TAG 0.11.26
+  GIT_SHALLOW TRUE
+  DOWNLOAD_ONLY YES
+)
+
 if(asio_ADDED)
   add_library(asio INTERFACE)
 
@@ -110,6 +118,12 @@ if(asio_ADDED)
       NOUSER
     )
   endif()
+endif()
+
+if(miniaudio_ADDED)
+  add_library(miniaudio INTERFACE)
+  target_include_directories(miniaudio SYSTEM INTERFACE
+                             "${miniaudio_SOURCE_DIR}")
 endif()
 
 # --- tomlplusplus -----------------------------------------------------------
@@ -201,7 +215,8 @@ else()
 endif()
 
 target_include_directories(rtype_core ${_core_scope} "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(rtype_core ${_core_scope} raylib asio tomlplusplus)
+target_link_libraries(rtype_core ${_core_scope} raylib asio miniaudio
+                      tomlplusplus)
 
 # ---------------------------------------------------------------------------
 # Server & Client

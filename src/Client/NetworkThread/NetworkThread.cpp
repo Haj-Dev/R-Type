@@ -17,7 +17,7 @@ CNetworkThread::CNetworkThread(asio::io_context& io, SSceneData& sceneData,
     mIo(io), mSceneData(sceneData), mPlayerActions(playerActions), mtex(sceneMutex), mRunning(running),
     mStopCondition(stopCondition), mMasterAddress(masterAddress), mMasterPort(masterPort),
     mPreferredServer(preferredServer), mLobbyState(lobbyState), mLobbyCommands(lobbyCommands),
-    mSocket(io), mTcpSocket(io) {}
+    mSocket(io), mVoiceSocket(io), mTcpSocket(io) {}
 
 CNetworkThread::~CNetworkThread() {
     join();
@@ -40,6 +40,9 @@ void CNetworkThread::run() {
         mSocket.open(asio::ip::udp::v4());
         mSocket.bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), 0));
         mSocket.non_blocking(true);
+        mVoiceSocket.open(asio::ip::udp::v4());
+        mVoiceSocket.bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), 0));
+        mVoiceSocket.non_blocking(true);
 
         bool               selected = false;
         Lobby::SServerInfo server;
@@ -226,6 +229,7 @@ bool CNetworkThread::connectToGameServer(const Lobby::SServerInfo& server) {
     }
 
     mServerEndpoint = asio::ip::udp::endpoint(address, server.udpPort);
+    mVoiceServerEndpoint = asio::ip::udp::endpoint(address, server.udpPort + 1);
     mTcpBuffer.clear();
     if (mTcpSocket.close(error)) {
         std::cerr << "[Client] Failed to close previous server socket: " << error.message() << '\n';
@@ -235,7 +239,8 @@ bool CNetworkThread::connectToGameServer(const Lobby::SServerInfo& server) {
         return false;
 
     const auto udpPort = mSocket.local_endpoint().port();
-    const auto hello   = Net::makeTcpHello(udpPort);
+    const auto voicePort = mVoiceSocket.local_endpoint().port();
+    const auto hello   = Net::makeTcpHello(udpPort, voicePort);
     asio::write(mTcpSocket, asio::buffer(hello), error);
     if (error)
         return false;
@@ -306,6 +311,18 @@ void CNetworkThread::processLobbyCommands() {
             case Lobby::eClientCommand::REFRESH_SERVERS: break;
             case Lobby::eClientCommand::SEND_CHAT:
                 sendLobbyFrame(Net::makeChatSend(SCChatMessage{0, 0, {}, command.text}));
+                break;
+            case Lobby::eClientCommand::TOGGLE_VOICE:
+                mLobbyState.voiceEnabled = !mLobbyState.voiceEnabled;
+                break;
+            case Lobby::eClientCommand::TOGGLE_MUTE:
+                mLobbyState.voiceMuted = !mLobbyState.voiceMuted;
+                break;
+            case Lobby::eClientCommand::VOLUME_UP:
+                mLobbyState.voiceVolume = std::min(1.0F, mLobbyState.voiceVolume + 0.1F);
+                break;
+            case Lobby::eClientCommand::VOLUME_DOWN:
+                mLobbyState.voiceVolume = std::max(0.0F, mLobbyState.voiceVolume - 0.1F);
                 break;
         }
     }

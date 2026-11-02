@@ -95,6 +95,10 @@ namespace Lobby {
         SELECT_SERVER,
         REFRESH_SERVERS,
         SEND_CHAT,
+        TOGGLE_VOICE,
+        TOGGLE_MUTE,
+        VOLUME_UP,
+        VOLUME_DOWN,
     };
 
     struct SCommand {
@@ -126,6 +130,9 @@ namespace Lobby {
         std::optional<Room::SInfo>  currentRoom;
         Ecs::CRegistry              chat; // chat messages and typing state, see Chat::CChatSystem
         std::string                 message;
+        bool                        voiceEnabled = true;
+        bool                        voiceMuted   = false;
+        float                       voiceVolume  = 1.0F;
     };
 
 } // namespace Lobby

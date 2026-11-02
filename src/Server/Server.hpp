@@ -29,6 +29,7 @@ class CServer {
   public:
     explicit CServer(asio::io_context& io, std::uint16_t tcpPort = Net::DefaultTcpPort,
                      std::uint16_t                udpPort      = Net::DefaultUdpPort,
+                     std::uint16_t                voicePort    = Net::DefaultVoicePort,
                      std::optional<SMasterConfig> masterConfig = std::nullopt);
     ~CServer();
 

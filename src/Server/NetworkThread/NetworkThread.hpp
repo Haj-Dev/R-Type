@@ -22,7 +22,8 @@ class CServerNetworkThread {
     CServerNetworkThread(asio::io_context& io, SSceneData& sceneData, SPLayerActions& playerActions,
                          std::mutex& sceneMutex, std::atomic_bool& running,
                          std::condition_variable& stopCondition, std::atomic_bool& gameActive,
-                         std::uint16_t tcpPort, std::uint16_t udpPort, SServerStatus& serverStatus,
+                         std::uint16_t tcpPort, std::uint16_t udpPort, std::uint16_t voicePort,
+                         SServerStatus& serverStatus,
                          std::mutex& statusMutex);
     ~CServerNetworkThread();
 
@@ -56,13 +57,16 @@ class CServerNetworkThread {
     std::atomic_bool&                                             mGameActive;
     std::uint16_t                                                 mTcpPort;
     std::uint16_t                                                 mUdpPort;
+    std::uint16_t                                                 mVoicePort;
     SServerStatus&                                                mServerStatus;
     std::mutex&                                                   mStatusMutex;
     std::thread                                                   mThread;
     asio::ip::udp::socket                                         mSocket;
+    asio::ip::udp::socket                                         mVoiceSocket;
     asio::ip::tcp::acceptor                                       mAcceptor;
     std::vector<asio::ip::tcp::socket>                            mControlSockets;
     std::vector<asio::ip::udp::endpoint>                          mClients;
+    std::vector<asio::ip::udp::endpoint>                          mVoiceClients;
     std::array<std::vector<std::uint8_t>, Room::MaxConnections>   mTcpBuffers;
     std::array<std::optional<std::uint8_t>, Room::MaxConnections> mConnectionGameplayIds;
     CRoomManager                                                  mRoomManager;

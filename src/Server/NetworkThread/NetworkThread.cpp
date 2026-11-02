@@ -11,10 +11,12 @@
 CServerNetworkThread::CServerNetworkThread(
     asio::io_context& io, SSceneData& sceneData, SPLayerActions& playerActions, std::mutex& sceneMutex,
     std::atomic_bool& running, std::condition_variable& stopCondition, std::atomic_bool& gameActive,
-    std::uint16_t tcpPort, std::uint16_t udpPort, SServerStatus& serverStatus, std::mutex& statusMutex) :
+    std::uint16_t tcpPort, std::uint16_t udpPort, std::uint16_t voicePort,
+    SServerStatus& serverStatus, std::mutex& statusMutex) :
     mIo(io), mSceneData(sceneData), mPlayerActions(playerActions), mtex(sceneMutex), mRunning(running),
     mStopCondition(stopCondition), mGameActive(gameActive), mTcpPort(tcpPort), mUdpPort(udpPort),
-    mServerStatus(serverStatus), mStatusMutex(statusMutex), mSocket(io), mAcceptor(io) {}
+    mVoicePort(voicePort), mServerStatus(serverStatus), mStatusMutex(statusMutex), mSocket(io),
+    mVoiceSocket(io), mAcceptor(io) {}
 
 CServerNetworkThread::~CServerNetworkThread() {
     join();
@@ -42,6 +44,9 @@ void CServerNetworkThread::run() {
     mSocket.open(asio::ip::udp::v4());
     mSocket.bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), mUdpPort));
     mSocket.non_blocking(true);
+    mVoiceSocket.open(asio::ip::udp::v4());
+    mVoiceSocket.bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), mVoicePort));
+    mVoiceSocket.non_blocking(true);
     mAcceptor.open(asio::ip::tcp::v4());
     mAcceptor.set_option(asio::socket_base::reuse_address(true));
     mAcceptor.bind(asio::ip::tcp::endpoint(asio::ip::tcp::v4(), mTcpPort));
@@ -84,10 +89,11 @@ void CServerNetworkThread::run() {
                 continue;
             }
 
-            std::uint16_t udpPort  = 0;
+            std::uint16_t udpPort = 0;
+            std::uint16_t voicePort = 0;
             const auto    freeSlot = std::ranges::find_if(
                 mClients, [](const auto& client) { return client.address().is_unspecified(); });
-            if (!Net::readTcpHello(pending->data.data(), pending->received, udpPort) ||
+            if (!Net::readTcpHello(pending->data.data(), pending->received, udpPort, voicePort) ||
                 (freeSlot == mClients.end() && mClients.size() >= Room::MaxConnections)) {
                 std::cerr << "[Server] Rejected invalid or excess TCP handshake\n";
                 pending = mPending.erase(pending);
@@ -99,9 +105,13 @@ void CServerNetworkThread::run() {
                 static_cast<std::uint8_t>(std::distance(mClients.begin(), freeSlot));
             if (freeSlot == mClients.end()) {
                 mClients.emplace_back(address, udpPort);
+                mVoiceClients.emplace_back(address, voicePort);
                 mControlSockets.push_back(std::move(pending->socket));
             } else {
                 *freeSlot                    = asio::ip::udp::endpoint(address, udpPort);
+                if (playerId >= mVoiceClients.size())
+                    mVoiceClients.resize(playerId + 1);
+                mVoiceClients.at(playerId) = asio::ip::udp::endpoint(address, voicePort);
                 mControlSockets.at(playerId) = std::move(pending->socket);
             }
             mTcpBuffers.at(playerId).clear();
@@ -137,6 +147,29 @@ void CServerNetworkThread::run() {
                 const auto gameplayId = mConnectionGameplayIds.at(connectionId);
                 if (!gameplayId)
                     continue;
+                for (;;) {
+                    asio::error_code error;
+                    const auto size = mVoiceSocket.receive_from(asio::buffer(buffer), sender, 0, error);
+                    if (error == asio::error::would_block)
+                        break;
+                    if (error || !Net::validVoicePacket(buffer.data(), size))
+                        continue;
+                    const auto client = std::ranges::find(mVoiceClients, sender);
+                    if (client == mVoiceClients.end())
+                        continue;
+                    const auto connectionId =
+                        static_cast<std::uint8_t>(std::distance(mVoiceClients.begin(), client));
+                    const auto roomId = mRoomManager.roomIdOfPlayer(connectionId);
+                    if (!roomId || !mConnectionGameplayIds.at(connectionId))
+                        continue;
+                    for (const auto target : mRoomManager.playersInRoom(*roomId)) {
+                        if (target == connectionId || target >= mVoiceClients.size() ||
+                            mVoiceClients.at(target).address().is_unspecified())
+                            continue;
+                        mVoiceSocket.send_to(asio::buffer(buffer.data(), size), mVoiceClients.at(target));
+                    }
+                }
+
                 const auto activeRoom = mRoomManager.activeRoom();
                 if (!activeRoom || mRoomManager.roomIdOfPlayer(connectionId) != activeRoom)
                     continue;
@@ -438,6 +471,8 @@ void CServerNetworkThread::disconnectPlayer(std::uint8_t playerId) {
     }
     if (playerId < mClients.size())
         mClients.at(playerId) = asio::ip::udp::endpoint{};
+    if (playerId < mVoiceClients.size())
+        mVoiceClients.at(playerId) = asio::ip::udp::endpoint{};
     mTcpBuffers.at(playerId).clear();
     if (roomId) {
         const auto room = mRoomManager.roomInfo(*roomId);
