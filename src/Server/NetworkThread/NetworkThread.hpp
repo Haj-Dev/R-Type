@@ -23,8 +23,7 @@ class CServerNetworkThread {
                          std::mutex& sceneMutex, std::atomic_bool& running,
                          std::condition_variable& stopCondition, std::atomic_bool& gameActive,
                          std::uint16_t tcpPort, std::uint16_t udpPort, std::uint16_t voicePort,
-                         SServerStatus& serverStatus,
-                         std::mutex& statusMutex);
+                         SServerStatus& serverStatus, std::mutex& statusMutex);
     ~CServerNetworkThread();
 
     CServerNetworkThread(const CServerNetworkThread&)            = delete;

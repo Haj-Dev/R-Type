@@ -11,8 +11,8 @@
 
 namespace Net {
 
-    inline constexpr std::uint16_t               DefaultTcpPort = 7000;
-    inline constexpr std::uint16_t               DefaultUdpPort = 7001;
+    inline constexpr std::uint16_t               DefaultTcpPort   = 7000;
+    inline constexpr std::uint16_t               DefaultUdpPort   = 7001;
     inline constexpr std::uint16_t               DefaultVoicePort = 7002;
     inline constexpr std::array<std::uint8_t, 3> Magic{{'H', 'A', 'J'}};
     inline constexpr std::uint16_t               Terminator = 0x0D0A;
@@ -89,10 +89,10 @@ namespace Net {
             data[2] != Magic.at(2) || data[3] != static_cast<std::uint8_t>(ePacketType::HELLO) ||
             data[8] != 0x0D)
             return false;
-        udpPort = static_cast<std::uint16_t>(static_cast<std::uint32_t>(data[4]) |
-                                             (static_cast<std::uint32_t>(data[5]) << 8U));
+        udpPort   = static_cast<std::uint16_t>(static_cast<std::uint32_t>(data[4]) |
+                                               (static_cast<std::uint32_t>(data[5]) << 8U));
         voicePort = static_cast<std::uint16_t>(static_cast<std::uint32_t>(data[6]) |
-            (static_cast<std::uint32_t>(data[7]) << 8U));
+                                               (static_cast<std::uint32_t>(data[7]) << 8U));
         return udpPort != 0 && voicePort != 0;
     }
 
@@ -109,8 +109,7 @@ namespace Net {
     }
 
     inline bool readTcpHello(const std::uint8_t* data, std::size_t size, std::uint16_t& udpPort) {
-        if (size != 7 || data[0] != Magic.at(0) || data[1] != Magic.at(1) ||
-            data[2] != Magic.at(2) ||
+        if (size != 7 || data[0] != Magic.at(0) || data[1] != Magic.at(1) || data[2] != Magic.at(2) ||
             data[3] != static_cast<std::uint8_t>(ePacketType::HELLO) || data[6] != 0x0D)
             return false;
         udpPort = static_cast<std::uint16_t>(static_cast<std::uint32_t>(data[4]) |
@@ -121,8 +120,8 @@ namespace Net {
     inline bool validVoicePacket(const std::uint8_t* data, std::size_t size) {
         return size >= HeaderSize + 1 + sizeof(std::uint16_t) + sizeof(Terminator) &&
             data[0] == Magic.at(0) && data[1] == Magic.at(1) && data[2] == Magic.at(2) &&
-            data[3] == static_cast<std::uint8_t>(ePacketType::VOICE) &&
-            data[size - 2] == 0x0D && data[size - 1] == 0x0A;
+            data[3] == static_cast<std::uint8_t>(ePacketType::VOICE) && data[size - 2] == 0x0D &&
+            data[size - 1] == 0x0A;
     }
 
     inline std::vector<std::uint8_t> makeTcpWelcome(std::uint8_t playerId) {

@@ -8,11 +8,13 @@
 #include <iostream>
 #include <vector>
 
-CServerNetworkThread::CServerNetworkThread(
-    asio::io_context& io, SSceneData& sceneData, SPLayerActions& playerActions, std::mutex& sceneMutex,
-    std::atomic_bool& running, std::condition_variable& stopCondition, std::atomic_bool& gameActive,
-    std::uint16_t tcpPort, std::uint16_t udpPort, std::uint16_t voicePort,
-    SServerStatus& serverStatus, std::mutex& statusMutex) :
+CServerNetworkThread::CServerNetworkThread(asio::io_context& io, SSceneData& sceneData,
+                                           SPLayerActions& playerActions, std::mutex& sceneMutex,
+                                           std::atomic_bool&        running,
+                                           std::condition_variable& stopCondition,
+                                           std::atomic_bool& gameActive, std::uint16_t tcpPort,
+                                           std::uint16_t udpPort, std::uint16_t voicePort,
+                                           SServerStatus& serverStatus, std::mutex& statusMutex) :
     mIo(io), mSceneData(sceneData), mPlayerActions(playerActions), mtex(sceneMutex), mRunning(running),
     mStopCondition(stopCondition), mGameActive(gameActive), mTcpPort(tcpPort), mUdpPort(udpPort),
     mVoicePort(voicePort), mServerStatus(serverStatus), mStatusMutex(statusMutex), mSocket(io),
@@ -89,9 +91,9 @@ void CServerNetworkThread::run() {
                 continue;
             }
 
-            std::uint16_t udpPort = 0;
+            std::uint16_t udpPort   = 0;
             std::uint16_t voicePort = 0;
-            const auto    freeSlot = std::ranges::find_if(
+            const auto    freeSlot  = std::ranges::find_if(
                 mClients, [](const auto& client) { return client.address().is_unspecified(); });
             if (!Net::readTcpHello(pending->data.data(), pending->received, udpPort, voicePort) ||
                 (freeSlot == mClients.end() && mClients.size() >= Room::MaxConnections)) {
@@ -108,10 +110,10 @@ void CServerNetworkThread::run() {
                 mVoiceClients.emplace_back(address, voicePort);
                 mControlSockets.push_back(std::move(pending->socket));
             } else {
-                *freeSlot                    = asio::ip::udp::endpoint(address, udpPort);
+                *freeSlot = asio::ip::udp::endpoint(address, udpPort);
                 if (playerId >= mVoiceClients.size())
                     mVoiceClients.resize(playerId + 1);
-                mVoiceClients.at(playerId) = asio::ip::udp::endpoint(address, voicePort);
+                mVoiceClients.at(playerId)   = asio::ip::udp::endpoint(address, voicePort);
                 mControlSockets.at(playerId) = std::move(pending->socket);
             }
             mTcpBuffers.at(playerId).clear();
@@ -169,7 +171,8 @@ void CServerNetworkThread::run() {
                         if (target == connectionId || target >= mVoiceClients.size() ||
                             mVoiceClients.at(target).address().is_unspecified())
                             continue;
-                        mVoiceSocket.send_to(asio::buffer(buffer.data(), size), mVoiceClients.at(target));
+                        mVoiceSocket.send_to(asio::buffer(buffer.data(), size),
+                                             mVoiceClients.at(target));
                     }
                 }
 

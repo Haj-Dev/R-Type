@@ -3,8 +3,7 @@
 #include <utility>
 
 CServer::CServer(asio::io_context& io, std::uint16_t tcpPort, std::uint16_t udpPort,
-                 std::uint16_t voicePort,
-                 std::optional<SMasterConfig> masterConfig) :
+                 std::uint16_t voicePort, std::optional<SMasterConfig> masterConfig) :
     mIo(io), mLogicThread(mSceneData, mPlayerActions, mtex, mRunning, mStopCondition, mGameActive),
     mNetworkThread(mIo, mSceneData, mPlayerActions, mtex, mRunning, mStopCondition, mGameActive, tcpPort,
                    udpPort, voicePort, mServerStatus, mStatusMutex) {

@@ -228,7 +228,7 @@ bool CNetworkThread::connectToGameServer(const Lobby::SServerInfo& server) {
         address = results.begin()->endpoint().address();
     }
 
-    mServerEndpoint = asio::ip::udp::endpoint(address, server.udpPort);
+    mServerEndpoint      = asio::ip::udp::endpoint(address, server.udpPort);
     mVoiceServerEndpoint = asio::ip::udp::endpoint(address, server.udpPort + 1);
     mTcpBuffer.clear();
     if (mTcpSocket.close(error)) {
@@ -238,9 +238,9 @@ bool CNetworkThread::connectToGameServer(const Lobby::SServerInfo& server) {
     if (mTcpSocket.connect(asio::ip::tcp::endpoint(address, server.tcpPort), error))
         return false;
 
-    const auto udpPort = mSocket.local_endpoint().port();
+    const auto udpPort   = mSocket.local_endpoint().port();
     const auto voicePort = mVoiceSocket.local_endpoint().port();
-    const auto hello   = Net::makeTcpHello(udpPort, voicePort);
+    const auto hello     = Net::makeTcpHello(udpPort, voicePort);
     asio::write(mTcpSocket, asio::buffer(hello), error);
     if (error)
         return false;
