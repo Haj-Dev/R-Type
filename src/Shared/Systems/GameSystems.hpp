@@ -246,7 +246,7 @@ namespace Game {
                 } else {
                     registry.emplace<SCPosition>(
                         entity,
-                        SCPosition{WorldWidth + 20.0F,
+                        SCPosition{WorldWidth + 100.0F,
                                    enemySpawn.getStartY() +
                                        (enemySpawn.getGapY() * enemySpawn.getSpawned())});
                 }
