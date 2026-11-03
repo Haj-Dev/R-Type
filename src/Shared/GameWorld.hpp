@@ -12,8 +12,8 @@ namespace Game {
     inline constexpr float FireInterval    = 0.2F;
 
     struct SEntityComponents {
-        std::uint32_t id = 0;
-        std::uint64_t creationTick = 0;
+        std::uint32_t                          id           = 0;
+        std::uint64_t                          creationTick = 0;
         std::vector<std::vector<std::uint8_t>> components;
     };
 

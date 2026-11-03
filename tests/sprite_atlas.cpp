@@ -34,13 +34,13 @@ TEST(SpriteAtlas, ZeroDurationRemainsStatic) {
 }
 
 TEST(SpriteAtlas, SceneProjectionPreservesAtlasMetadata) {
-    SSceneData scene;
+    SSceneData                scene;
     std::vector<std::uint8_t> atlasBytes;
     SCDrawableSpriteAtlas{"atlas.png", SDimentions{.width = 32U, .height = 24U}, 5U, 0.08F, 2U}
         .serialize(atlasBytes);
     scene.replaceEntities({Game::SEntityComponents{.id = 1U, .components = {atlasBytes}}});
 
-    const auto  renderEntity = *scene.renderRegistry.view<SCDrawableSpriteAtlas>().begin();
+    const auto  renderEntity   = *scene.renderRegistry.view<SCDrawableSpriteAtlas>().begin();
     const auto* atlasComponent = scene.renderRegistry.get<SCDrawableSpriteAtlas>(renderEntity);
     ASSERT_NE(atlasComponent, nullptr);
     EXPECT_FLOAT_EQ(atlasComponent->baseDimension.width, 32.0F);
@@ -82,10 +82,10 @@ TEST(SpriteAtlas, EnemyUsesFiveFrameAtlas) {
 }
 
 TEST(SpriteAtlas, SnapshotRefreshPreservesAnimationState) {
-    SSceneData scene;
+    SSceneData                scene;
     std::vector<std::uint8_t> atlas;
-    SCDrawableSpriteAtlas{"atlas.png", SDimentions{.width = 32U, .height = 32U}, 2U, 0.1F}
-        .serialize(atlas);
+    SCDrawableSpriteAtlas{"atlas.png", SDimentions{.width = 32U, .height = 32U}, 2U, 0.1F}.serialize(
+        atlas);
     scene.replaceEntities({Game::SEntityComponents{.id = 7U, .components = {atlas}}});
 
     const auto firstEntity = *scene.renderRegistry.view<SCDrawableSpriteAtlas>().begin();
