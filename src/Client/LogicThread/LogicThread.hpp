@@ -8,7 +8,6 @@
 #include "Shared/SceneData.hpp"
 #include "Shared/PlayerActions.hpp"
 #include "Shared/GameSimulation.hpp"
-#include "Shared/Systems/GameSystems.hpp"
 #include "Shared/Lobby.hpp"
 
 class CLogicThread {
@@ -37,5 +36,4 @@ class CLogicThread {
     std::condition_variable& mStopCondition;
     std::thread              mThread;
     Game::CSimulation        mSimulation;
-    Game::CAnimationSystem   mAnimationSystem;
 };

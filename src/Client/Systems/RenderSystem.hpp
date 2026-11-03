@@ -49,8 +49,8 @@ class CRenderSystem : public IRenderSystem {
         DrawCircle(x, y, r, toRaylib(color));
     }
 
-    void draw(Ecs::CRegistry& registry) const override {
-        renderer_.draw(registry);
+    void draw(Ecs::CRegistry& registry, std::uint64_t currentTick) const override {
+        renderer_.draw(registry, currentTick);
         registry.each<SCPosition, SCEntityType, SCHealth>(
             [&](Ecs::SEntity entity, SCPosition& position, SCEntityType& type, SCHealth& health) {
                 if (type.value == Game::eEntityKind::PLAYER) {

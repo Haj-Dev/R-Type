@@ -42,7 +42,6 @@ namespace Game {
             playerSystem_.synchronizeConnectedPlayers(registry_, actions_);
             playerSystem_.update(registry_, actions_, delta);
             movementSystem_.update(registry_, delta);
-            animationSystem_.update(registry_, delta);
             enemySpawnSystem_.update(registry_, delta);
             collisionSystem_.update(registry_);
             cleanupSystem_.update(registry_);
@@ -57,7 +56,6 @@ namespace Game {
         SPLayerActions    actions_;
         CPlayerSystem     playerSystem_;
         CMovementSystem   movementSystem_;
-        CAnimationSystem  animationSystem_;
         CEnemySpawnSystem enemySpawnSystem_;
         CCollisionSystem  collisionSystem_;
         CCleanupSystem    cleanupSystem_;

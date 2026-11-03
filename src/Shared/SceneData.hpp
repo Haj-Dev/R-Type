@@ -1,13 +1,11 @@
 #pragma once
 
 #include "Shared/Components/ComponentRegistry.hpp"
-#include "Shared/Components/DrawableSpriteAtlas.hpp"
 #include "Shared/ECS/ECS.hpp"
 #include "Shared/GameWorld.hpp"
 
 #include <algorithm>
 #include <cstdint>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -34,9 +32,8 @@ struct SSceneData {
     SSceneData& operator=(SSceneData&&) noexcept = default;
 
     void        replaceEntities(std::vector<Game::SEntityComponents> nextEntities) {
-        const auto animationStates = captureAnimationStates();
-        entities                   = std::move(nextEntities);
-        rebuildRenderRegistry(animationStates);
+        entities = std::move(nextEntities);
+        rebuildRenderRegistry();
     }
 
     bool applyUpdates(const std::vector<Game::SUpdateEntity>& updates) {
@@ -70,34 +67,13 @@ struct SSceneData {
     }
 
   private:
-    using SAnimationState = std::pair<std::size_t, float>;
-
-    [[nodiscard]] std::unordered_map<std::uint32_t, SAnimationState> captureAnimationStates() const {
-        std::unordered_map<std::uint32_t, SAnimationState> states;
-        std::vector<Ecs::SEntity>                          renderEntities;
-        renderRegistry.eachEntity(
-            [&renderEntities](Ecs::SEntity entity) { renderEntities.push_back(entity); });
-        const auto count = std::min(entities.size(), renderEntities.size());
-        for (std::size_t index = 0; index < count; ++index) {
-            if (const auto* atlas = renderRegistry.get<SCDrawableSpriteAtlas>(renderEntities.at(index)))
-                states.emplace(entities.at(index).id,
-                               SAnimationState{atlas->currentFrame(), atlas->animationTime()});
-        }
-        return states;
-    }
-
-    void rebuildRenderRegistry(
-        const std::unordered_map<std::uint32_t, SAnimationState>& animationStates = {}) {
+    void rebuildRenderRegistry() {
         renderRegistry.clear();
         CComponentRegistry registry;
         for (const auto& entity : entities) {
             const auto renderEntity = renderRegistry.create();
             for (const auto& bytes : entity.components) {
                 registry.apply(renderRegistry, renderEntity, bytes);
-            }
-            if (auto* atlas = renderRegistry.get<SCDrawableSpriteAtlas>(renderEntity)) {
-                if (const auto state = animationStates.find(entity.id); state != animationStates.end())
-                    atlas->restoreAnimationState(state->second.first, state->second.second);
             }
         }
     }

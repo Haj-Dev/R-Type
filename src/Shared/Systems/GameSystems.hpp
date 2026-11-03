@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Shared/Components/ComponentRegistry.hpp"
 #include "Shared/ECS/ECS.hpp"
 #include "Shared/Components/Collider.hpp"
 #include "Shared/Components/EntityType.hpp"
@@ -8,8 +9,6 @@
 #include "Shared/Components/Position.hpp"
 #include "Shared/Components/Projectile.hpp"
 #include "Shared/Components/Velocity.hpp"
-#include "Shared/Components/DrawableShape.hpp"
-#include "Shared/Components/DrawableSprite.hpp"
 #include "Shared/Components/DrawableSpriteAtlas.hpp"
 #include "Shared/GameWorld.hpp"
 #include "Shared/PlayerActions.hpp"
@@ -29,14 +28,6 @@
 #include <vector>
 
 namespace Game {
-
-    class CAnimationSystem {
-      public:
-        void update(Ecs::CRegistry& registry, float delta) const {
-            registry.each<SCDrawableSpriteAtlas>(
-                [delta](Ecs::SEntity, SCDrawableSpriteAtlas& sprite) { sprite.advance(delta); });
-        }
-    };
 
     class CPlayerSystem {
       public:
@@ -102,7 +93,7 @@ namespace Game {
             registry.emplace<SCDrawableSpriteAtlas>(
                 entity,
                 SCDrawableSpriteAtlas{"assets/player_atlas.png",
-                                      SDimentions{.width = 32U, .height = 32U}, 2, 0.5F, id % 4U});
+                                      SDimentions{.width = 32U, .height = 32U}, 4, 30U, id % 4U});
             registry.emplace<SCPlayer>(entity, SCPlayer{id});
         }
 
@@ -117,7 +108,7 @@ namespace Game {
             registry.emplace<SCDrawableSpriteAtlas>(
                 entity,
                 SCDrawableSpriteAtlas{"assets/r-typesheet3.gif",
-                                      SDimentions{.width = 17U, .height = 17U}, 12, 0.25F, 0});
+                                      SDimentions{.width = 17U, .height = 17U}, 12, 15U, 0});
         }
     };
 
@@ -266,7 +257,7 @@ namespace Game {
                 registry.emplace<SCDrawableSpriteAtlas>(
                     entity,
                     SCDrawableSpriteAtlas{"assets/r-typesheet5.gif",
-                                          SDimentions{.width = 32U, .height = 36U}, 5, 0.5F, 0});
+                                          SDimentions{.width = 32U, .height = 36U}, 5, 30U, 0});
                 enemySpawn.enemySpawned();
             }
             std::erase_if(enemySpawns, [](CEnemySpawn& enemySpawn) { return enemySpawn.toDelete(); });
@@ -357,7 +348,10 @@ namespace Game {
             CComponentRegistry components;
             registry.eachEntity([&](Ecs::SEntity entity) {
                 SEntityComponents snapshot{
-                    .id = entity.index, .creationTick = entity.creationTick, .components = {}};
+                    .id           = entity.index,
+                    .creationTick = entity.creationTick,
+                    .components   = {},
+                };
                 snapshot.components = components.serialize(registry, entity);
                 result.push_back(std::move(snapshot));
             });
