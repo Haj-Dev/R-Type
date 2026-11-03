@@ -55,16 +55,19 @@ namespace Game {
                 spawnProjectile(registry, projectile.position, projectile.playerId);
         }
 
-        void synchronizeConnectedPlayers(Ecs::CRegistry& registry, const SPLayerActions& actions) const {
+        void synchronizeConnectedPlayers(Ecs::CRegistry& registry, const SPLayerActions& actions,
+                                         bool removeDisconnected = true) const {
             std::vector<Ecs::SEntity>                    disconnected;
             std::array<bool, SPLayerActions::MaxPlayers> exists{};
 
             registry.each<SCPlayer>([&](Ecs::SEntity entity, SCPlayer& player) {
-                if (player.id >= SPLayerActions::MaxPlayers || !actions.connected.at(player.id)) {
+                if (removeDisconnected &&
+                    (player.id >= SPLayerActions::MaxPlayers || !actions.connected.at(player.id))) {
                     disconnected.push_back(entity);
                     return;
                 }
-                exists.at(player.id) = true;
+                if (player.id < SPLayerActions::MaxPlayers)
+                    exists.at(player.id) = true;
             });
 
             for (const auto entity : disconnected)

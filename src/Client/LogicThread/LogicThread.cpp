@@ -29,11 +29,11 @@ void CLogicThread::join() {
 }
 
 void CLogicThread::run() {
-    constexpr auto  tickInterval = std::chrono::nanoseconds(1'000'000'000 / 60);
-    constexpr float tickDelta    = 1.0F / 60.0F;
+    constexpr auto                       tickInterval = std::chrono::nanoseconds(1'000'000'000 / 60);
+    constexpr float                      tickDelta    = 1.0F / 60.0F;
     const Timing::CScopedTimerResolution timerResolution;
-    Timing::CFixedRate tickRate(tickInterval);
-    bool            wasInGame    = false;
+    Timing::CFixedRate                   tickRate(tickInterval);
+    bool                                 wasInGame = false;
 
     while (mRunning.load()) {
         {
@@ -63,7 +63,7 @@ void CLogicThread::updateLocalSimulation(float delta) {
         localActions.states.at(localPlayerId)    = mPlayerActions.states.at(localPlayerId);
     }
     mSimulation.applyActions(localActions);
-    mSimulation.tick(delta);
+    mSimulation.tick(delta, false);
     mSceneData.replaceEntities(mSimulation.snapshot());
     ++mSceneData.tick;
 }

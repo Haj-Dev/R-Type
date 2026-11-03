@@ -42,6 +42,27 @@ TEST(GameSimulation, SpawnsConnectedPlayerAndEnemy) {
         1);
 }
 
+TEST(GameSimulation, ClientPredictionPreservesRemotePlayers) {
+    Game::CSimulation server = Game::CSimulation::deterministic();
+    SPLayerActions    remoteActions;
+    remoteActions.connected.at(1) = true;
+    server.applyActions(remoteActions);
+    server.tick(0.016F, true);
+
+    Game::CSimulation client = Game::CSimulation::deterministic();
+    client.synchronize(server.snapshot(), 0);
+    SPLayerActions localActions;
+    localActions.connected.at(0) = true;
+    client.applyActions(localActions);
+    client.tick(0.016F, false);
+
+    const auto entities = client.snapshot();
+    EXPECT_EQ(
+        std::count_if(entities.begin(), entities.end(),
+                      [](const auto& entity) { return hasKind(entity, Game::eEntityKind::PLAYER); }),
+        2);
+}
+
 TEST(GameSimulation, PlayerInputMovesAndFires) {
     Game::CSimulation simulation = Game::CSimulation::deterministic();
     SPLayerActions    actions;

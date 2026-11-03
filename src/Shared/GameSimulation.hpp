@@ -38,8 +38,8 @@ namespace Game {
             *this = CSimulation{};
         }
 
-        void tick(float delta) {
-            playerSystem_.synchronizeConnectedPlayers(registry_, actions_);
+        void tick(float delta, bool isServer = true) {
+            playerSystem_.synchronizeConnectedPlayers(registry_, actions_, isServer);
             playerSystem_.update(registry_, actions_, delta);
             movementSystem_.update(registry_, delta);
             enemySpawnSystem_.update(registry_, delta);
