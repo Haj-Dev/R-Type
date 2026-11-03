@@ -242,7 +242,7 @@ namespace Game {
                     std::uniform_int_distribution<> dis(0,
                                                         Game::WorldHeight - (enemySpawn.getSize() * 2));
                     registry.emplace<SCPosition>(
-                        entity, SCPosition{WorldWidth + 20.0F, (dis(gen) + enemySpawn.getSize())});
+                        entity, SCPosition{WorldWidth + 100.0F, (dis(gen) + enemySpawn.getSize())});
                 } else {
                     registry.emplace<SCPosition>(
                         entity,
@@ -282,6 +282,8 @@ namespace Game {
                         [&](Ecs::SEntity enemy, SCPosition& enemyPosition, SCCollider& enemyCollider,
                             SCEntityType& enemyType, SCHealth& health) {
                             if (enemyType.value != eEntityKind::ENEMY)
+                                return;
+                            if (enemyPosition.x > WorldWidth)
                                 return;
                             const float dx     = projectilePosition.x - enemyPosition.x;
                             const float dy     = projectilePosition.y - enemyPosition.y;
