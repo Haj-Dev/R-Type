@@ -1,5 +1,6 @@
 #include "NetworkThread.hpp"
 #include "Shared/ControlProtocol.hpp"
+#include "Shared/FixedRate.hpp"
 #include "Shared/Types.hpp"
 
 #include <array>
@@ -261,7 +262,9 @@ bool CNetworkThread::connectToGameServer(const Lobby::SServerInfo& server) {
 }
 
 void CNetworkThread::runGameSession() {
-    constexpr auto            networkInterval = std::chrono::milliseconds(16);
+    constexpr auto            networkInterval = std::chrono::nanoseconds(1'000'000'000 / 60);
+    const Timing::CScopedTimerResolution timerResolution;
+    Timing::CFixedRate networkRate(networkInterval);
     std::vector<std::uint8_t> buffer(Net::MaxUdpPayloadSize);
     while (mRunning.load()) {
         processLobbyCommands();
@@ -273,7 +276,7 @@ void CNetworkThread::runGameSession() {
             receiveSnapshots(buffer);
         }
         std::unique_lock lock(mtex);
-        if (mStopCondition.wait_for(lock, networkInterval, [this] { return !mRunning.load(); }))
+        if (!networkRate.wait(mStopCondition, lock, [this] { return !mRunning.load(); }))
             break;
     }
 }

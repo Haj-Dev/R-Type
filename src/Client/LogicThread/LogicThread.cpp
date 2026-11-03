@@ -1,5 +1,7 @@
 #include "LogicThread.hpp"
 
+#include "Shared/FixedRate.hpp"
+
 #include <chrono>
 
 CLogicThread::CLogicThread(SSceneData& sceneData, SPLayerActions& playerActions,
@@ -29,6 +31,8 @@ void CLogicThread::join() {
 void CLogicThread::run() {
     constexpr auto  tickInterval = std::chrono::nanoseconds(1'000'000'000 / 60);
     constexpr float tickDelta    = 1.0F / 60.0F;
+    const Timing::CScopedTimerResolution timerResolution;
+    Timing::CFixedRate tickRate(tickInterval);
     bool            wasInGame    = false;
 
     while (mRunning.load()) {
@@ -46,7 +50,7 @@ void CLogicThread::run() {
             wasInGame = inGame;
         }
         std::unique_lock lock(mtex);
-        if (mStopCondition.wait_for(lock, tickInterval, [this] { return !mRunning.load(); }))
+        if (!tickRate.wait(mStopCondition, lock, [this] { return !mRunning.load(); }))
             break;
     }
 }
