@@ -24,6 +24,53 @@ This is an architectural comparison, not a benchmark. The chosen libraries
 were selected for the project's expected scope and constraints, not because
 they are universally superior.
 
+## Programming-language selection
+
+### Requirements at project start
+
+The language needed to support both the client and the authoritative server,
+with a shared ECS, shared component definitions, and shared binary protocol
+serialization. It also needed predictable performance for a 60 Hz simulation,
+low-level TCP and UDP access, portable desktop builds, and access to mature 2D
+game and testing libraries.
+
+The project also benefited from explicit ownership and data-layout control. The
+server must remain authoritative, packet data must be validated explicitly, and
+the client and server should share domain types without duplicating the game
+model in separate languages.
+
+| Language | Strengths for R-Type | Limitations for the initial project |
+| --- | --- | --- |
+| **C++** | Mature game-development ecosystem; direct memory and data-layout control; strong TCP/UDP and graphics-library availability; supports a shared native ECS and protocol code; excellent desktop portability | More complex language rules; manual lifetime and concurrency errors are possible; build times and dependency management require discipline |
+| **Rust** | Memory and thread safety by default; strong performance; expressive enums and pattern matching are useful for protocol handling; good tooling | Smaller and less uniform game-library ecosystem; ownership and borrowing would increase the learning cost for a shared ECS and threaded client/server design; Raylib and Asio-equivalent integration is less direct |
+| **C#** | Productive language; strong tooling; mature networking and testing libraries; good options through Unity, MonoGame, or Stride | Runtime and framework choices add deployment considerations; less direct control over data layout and allocation; sharing the exact same low-level simulation and wire structures with a native client/server is less natural |
+| **Go** | Simple concurrency model; fast builds; practical standard networking package; easy server deployment | Weaker fit for a real-time graphical client; garbage collection and limited low-level control are less attractive for the shared simulation and rendering side |
+| **Java** | Portable runtime; mature networking, concurrency, and testing ecosystems; strong tooling | Runtime and allocation behavior are less predictable for a small real-time game; graphics and native-library integration add extra choices; less natural fit for the selected native game libraries |
+| **Python** | Very fast prototyping and broad tooling | Runtime performance, allocation behavior, deployment, and native graphics integration make it unsuitable as the primary language for this client/server simulation |
+
+### Selected option: C++23
+
+C++23 was selected because it offered the best combination of performance,
+native library compatibility, portability, and control for the initial design.
+It allowed the client and server to share the ECS, components, protocol types,
+serialization code, and simulation without introducing a second language or a
+cross-language data contract.
+
+The language choice also aligned directly with the selected libraries: Raylib
+provides a straightforward C/C++ client API, standalone Asio provides portable
+TCP and UDP primitives, toml++ exposes a modern C++ interface, and GoogleTest
+integrates naturally with the CMake build. C++23 features such as ranges,
+strongly typed enums, `std::span`, and standard concurrency utilities improve
+expressiveness while retaining control over allocations and data layout.
+
+Rust was the strongest alternative for safety-critical ownership and
+concurrency guarantees. It was not selected because the initial project placed
+more weight on the established C++ game ecosystem, direct library integration,
+and the team's ability to share native code quickly. C# would have been a
+strong alternative for a framework-led game client, while Go would have been
+more attractive if the project were primarily a network service rather than a
+shared real-time game.
+
 ## Selected stack
 
 | Concern | Selected technology | Version or approach | Why it was selected |
