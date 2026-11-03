@@ -142,11 +142,11 @@ namespace Net {
         const std::vector<std::uint8_t> bytes(data, data + size);
         const auto flags = static_cast<std::uint32_t>(bytes.at(HeaderSize + CommandHeaderSize));
         action           = SPlayerActionState{
-                      .up    = (flags & 1U) != 0,
-                      .down  = (flags & 2U) != 0,
-                      .left  = (flags & 4U) != 0,
-                      .right = (flags & 8U) != 0,
-                      .fire  = (flags & 16U) != 0,
+            .up    = (flags & 1U) != 0,
+            .down  = (flags & 2U) != 0,
+            .left  = (flags & 4U) != 0,
+            .right = (flags & 8U) != 0,
+            .fire  = (flags & 16U) != 0,
         };
         return true;
     }
@@ -173,29 +173,11 @@ namespace Net {
         appendTick(packet, scene.tick);
         for (const auto& entity : scene.entities) {
             std::vector<std::uint8_t> payload;
-            const auto                appendComponent = [&payload](const AComponent& component) {
-                std::vector<std::uint8_t> bytes;
-                component.serialize(bytes);
+            append(payload, entity.creationTick);
+            append(payload, static_cast<std::uint16_t>(entity.components.size()));
+            for (const auto& bytes : entity.components) {
                 append(payload, static_cast<std::uint32_t>(bytes.size()));
                 payload.insert(payload.end(), bytes.begin(), bytes.end());
-            };
-            append(payload, static_cast<std::uint16_t>(4U));
-            appendComponent(SCPosition{entity.x, entity.y});
-            appendComponent(SCEntityType{entity.kind});
-            appendComponent(SCHealth{entity.health});
-            if (entity.texture.empty()) {
-                appendComponent(SCDrawableShape{eDrawableShape::CIRCLE,
-                                                entity.kind == Game::eEntityKind::PLAYER ? 18.0F : 8.0F,
-                                                static_cast<std::uint8_t>(entity.kind), entity.layer});
-            } else if (entity.atlas) {
-                appendComponent(SCDrawableSpriteAtlas{
-                    entity.texture, entity.baseDimension, entity.frames, entity.frameDuration,
-                    entity.variant, entity.layer, entity.scale,
-                    SCPosition{entity.offsetX, entity.offsetY}, entity.rotation});
-            } else {
-                appendComponent(SCDrawableSprite{entity.texture, entity.layer, entity.scale,
-                                                 SCPosition{entity.offsetX, entity.offsetY},
-                                                 entity.rotation});
             }
             std::vector<std::uint8_t> framedPayload;
             append(framedPayload, static_cast<std::uint32_t>(payload.size()));
@@ -307,7 +289,7 @@ namespace Net {
     }
 
     inline bool readSnapshot(const std::uint8_t* data, std::size_t size,
-                             std::vector<Game::SSnapshotEntity>& entities, std::uint64_t& tick) {
+                             std::vector<Game::SEntityComponents>& entities, std::uint64_t& tick) {
         if (!validPacket(data, size, ePacketType::SNAPSHOT))
             return false;
         if (size < HeaderSize + TickSize + sizeof(Terminator))
@@ -329,13 +311,18 @@ namespace Net {
             if (payloadSize > size - sizeof(Terminator) - offset)
                 return false;
             const auto payloadEnd = offset + payloadSize;
-            if (offset + sizeof(std::uint16_t) > payloadEnd)
+            if (offset + sizeof(std::uint64_t) + sizeof(std::uint16_t) > payloadEnd)
                 return false;
+            Game::SEntityComponents entity;
+            entity.id = static_cast<std::uint32_t>(entityId);
+            if (offset + sizeof(std::uint64_t) + sizeof(std::uint16_t) > payloadEnd)
+                return false;
+            std::memcpy(&entity.creationTick, data + offset, sizeof(entity.creationTick));
+            offset += sizeof(entity.creationTick);
             std::uint16_t componentCount = 0;
             std::memcpy(&componentCount, data + offset, sizeof(componentCount));
             offset += sizeof(componentCount);
-            Game::SSnapshotEntity entity;
-            entity.id = static_cast<std::uint32_t>(entityId);
+            entity.components.reserve(componentCount);
             for (std::uint16_t index = 0; index < componentCount; ++index) {
                 if (offset + sizeof(std::uint32_t) > payloadEnd)
                     return false;
@@ -344,42 +331,11 @@ namespace Net {
                 offset += sizeof(componentSize);
                 if (componentSize > payloadEnd - offset)
                     return false;
-                const std::vector<std::uint8_t> bytes(data + offset, data + offset + componentSize);
+                std::vector<std::uint8_t> bytes(data + offset, data + offset + componentSize);
                 offset += componentSize;
-                auto component = registry.deserialize(bytes);
-                if (!component)
+                if (!registry.deserialize(bytes))
                     return false;
-                if (const auto* position = dynamic_cast<const SCPosition*>(component.get())) {
-                    entity.x = position->x;
-                    entity.y = position->y;
-                } else if (const auto* type = dynamic_cast<const SCEntityType*>(component.get())) {
-                    entity.kind = type->value;
-                } else if (const auto* health = dynamic_cast<const SCHealth*>(component.get())) {
-                    entity.health = health->value;
-                } else if (const auto* shape = dynamic_cast<const SCDrawableShape*>(component.get())) {
-                    entity.texture.clear();
-                    entity.layer = shape->layer;
-                } else if (const auto* atlas =
-                               dynamic_cast<const SCDrawableSpriteAtlas*>(component.get())) {
-                    entity.texture       = atlas->texture;
-                    entity.layer         = atlas->layer;
-                    entity.scale         = atlas->scale;
-                    entity.offsetX       = atlas->offset.x;
-                    entity.offsetY       = atlas->offset.y;
-                    entity.rotation      = atlas->rotation;
-                    entity.atlas         = true;
-                    entity.baseDimension = atlas->baseDimension;
-                    entity.frames        = atlas->frames;
-                    entity.frameDuration = atlas->frameDuration;
-                    entity.variant       = atlas->variant;
-                } else if (const auto* sprite = dynamic_cast<const SCDrawableSprite*>(component.get())) {
-                    entity.texture  = sprite->texture;
-                    entity.layer    = sprite->layer;
-                    entity.scale    = sprite->scale;
-                    entity.offsetX  = sprite->offset.x;
-                    entity.offsetY  = sprite->offset.y;
-                    entity.rotation = sprite->rotation;
-                }
+                entity.components.push_back(std::move(bytes));
             }
             if (offset != payloadEnd)
                 return false;
@@ -390,7 +346,7 @@ namespace Net {
     }
 
     inline bool readSnapshot(const std::uint8_t* data, std::size_t size,
-                             std::vector<Game::SSnapshotEntity>& entities) {
+                             std::vector<Game::SEntityComponents>& entities) {
         std::uint64_t tick = 0;
         return readSnapshot(data, size, entities, tick);
     }

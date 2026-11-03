@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <atomic>
 #include <asio.hpp>
 #include <condition_variable>
@@ -20,7 +19,8 @@ class CNetworkThread {
     CNetworkThread(asio::io_context& io, SSceneData& sceneData, SPLayerActions& playerActions,
                    std::mutex& sceneMutex, std::atomic_bool& running,
                    std::condition_variable& stopCondition, const std::string& serverAddress,
-                   Lobby::SLobbyState& lobbyState, std::deque<Lobby::SCommand>& lobbyCommands);
+                   Lobby::SLobbyState& lobbyState, std::deque<Lobby::SCommand>& lobbyCommands,
+                   std::atomic_bool& authoritativeState);
     ~CNetworkThread();
 
     CNetworkThread(const CNetworkThread&)               = delete;
@@ -46,6 +46,7 @@ class CNetworkThread {
     SPLayerActions&          mPlayerActions;
     std::mutex&              mtex;
     std::atomic_bool&        mRunning;
+    std::atomic_bool&        mAuthoritativeState;
     std::condition_variable& mStopCondition;
     Lobby::SLobbyState&      mLobbyState;
     std::deque<Lobby::SCommand>& mLobbyCommands;

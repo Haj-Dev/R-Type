@@ -1,10 +1,11 @@
 #include "Client.hpp"
 
 CClient::CClient(const std::string& serverAddress) :
-    mLogicThread(mSceneData, mPlayerActions, mtex, mRunning, mStopCondition),
+    mLogicThread(mSceneData, mPlayerActions, mLobbyState, mAuthoritativeState, mtex, mRunning,
+                 mStopCondition),
     mDrawThread(mSceneData, mPlayerActions, mtex, mRunning, mStopCondition, mLobbyState, mLobbyCommands),
     mNetworkThread(mIo, mSceneData, mPlayerActions, mtex, mRunning, mStopCondition, serverAddress,
-                   mLobbyState, mLobbyCommands) {
+                   mLobbyState, mLobbyCommands, mAuthoritativeState) {
     start();
 }
 

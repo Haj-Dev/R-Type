@@ -9,10 +9,12 @@ CNetworkThread::CNetworkThread(asio::io_context& io, SSceneData& sceneData,
                                SPLayerActions& playerActions, std::mutex& sceneMutex,
                                std::atomic_bool& running, std::condition_variable& stopCondition,
                                const std::string& serverAddress, Lobby::SLobbyState& lobbyState,
-                               std::deque<Lobby::SCommand>& lobbyCommands) :
+                               std::deque<Lobby::SCommand>& lobbyCommands,
+                               std::atomic_bool&            authoritativeState) :
     mSceneData(sceneData), mPlayerActions(playerActions), mtex(sceneMutex), mRunning(running),
-    mStopCondition(stopCondition), mLobbyState(lobbyState), mLobbyCommands(lobbyCommands), mSocket(io),
-    mTcpSocket(io), mServerEndpoint(asio::ip::make_address_v4(serverAddress), Net::DefaultUdpPort) {}
+    mAuthoritativeState(authoritativeState), mStopCondition(stopCondition), mLobbyState(lobbyState),
+    mLobbyCommands(lobbyCommands), mSocket(io), mTcpSocket(io),
+    mServerEndpoint(asio::ip::make_address_v4(serverAddress), Net::DefaultUdpPort) {}
 
 CNetworkThread::~CNetworkThread() {
     join();
@@ -206,6 +208,11 @@ void CNetworkThread::handleLobbyMessage(Net::eLobbyCommand command, const std::u
             mLobbyState.currentRoom.reset();
             mLobbyState.phase = Lobby::eLobbyPhase::ROOM_LIST;
             mPlayerActions.connected.fill(false);
+            mAuthoritativeState.store(false);
+            mSceneData.replaceEntities({});
+            mSceneData.tick   = 0;
+            mLastReceivedTick = 0;
+            mHasReceivedTick  = false;
             break;
         }
         case Net::eLobbyCommand::GAME_STARTED: {
@@ -218,8 +225,13 @@ void CNetworkThread::handleLobbyMessage(Net::eLobbyCommand command, const std::u
                 mPlayerActions.connected.fill(false);
                 mPlayerActions.connected.at(mPlayerId) = true;
                 mPlayerActions.states.at(mPlayerId)    = SPlayerActionState{};
+                mSceneData.replaceEntities({});
+                mSceneData.tick = 0;
             }
-            mInGame = true;
+            mAuthoritativeState.store(false);
+            mLastReceivedTick = 0;
+            mHasReceivedTick  = false;
+            mInGame           = true;
             mStopCondition.notify_all();
             break;
         }
@@ -268,8 +280,8 @@ void CNetworkThread::receiveSnapshots(std::vector<std::uint8_t>& buffer) {
         if (error)
             break;
         if (Net::validPacket(buffer.data(), size, Net::ePacketType::SNAPSHOT)) {
-            std::vector<Game::SSnapshotEntity> entities;
-            std::uint64_t                      tick = 0;
+            std::vector<Game::SEntityComponents> entities;
+            std::uint64_t                        tick = 0;
             if (!Net::readSnapshot(buffer.data(), size, entities, tick) ||
                 (mHasReceivedTick && tick < mLastReceivedTick))
                 continue;
@@ -278,6 +290,7 @@ void CNetworkThread::receiveSnapshots(std::vector<std::uint8_t>& buffer) {
             mSceneData.tick   = tick;
             mLastReceivedTick = tick;
             mHasReceivedTick  = true;
+            mAuthoritativeState.store(true);
         } else if (Net::validPacket(buffer.data(), size, Net::ePacketType::UPDATE)) {
             std::vector<Game::SUpdateEntity> updates;
             std::uint64_t                    tick = 0;

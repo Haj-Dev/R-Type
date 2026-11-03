@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <chrono>
 #include <iostream>
+#include <unordered_set>
 #include <vector>
 
 CServerNetworkThread::CServerNetworkThread(asio::io_context& io, SSceneData& sceneData,
@@ -152,37 +153,131 @@ void CServerNetworkThread::run() {
         if (activeRoom) {
             std::vector<std::uint8_t> packet;
             {
-                std::scoped_lock lock(mtex);
-                const auto       tick = mSceneData.tick;
-                if (mHasSentTick && tick == mLastSentTick) {
-                    packet.clear();
-                } else if ((tick + SNAPSHOT_POLICY.offset) % SNAPSHOT_POLICY.interval == 0) {
-                    packet = Net::makeSnapshot(mSceneData);
+                std::scoped_lock                  lock(mtex);
+                const auto                        tick = mSceneData.tick;
+                std::unordered_set<std::uint32_t> currentEntityIds;
+                for (const auto& entity : mSceneData.entities) {
+                    currentEntityIds.insert(entity.id);
+                    auto [transmission, inserted] =
+                        mEntityTransmissions.try_emplace(entity.id,
+                                                         SEntityTransmission{
+                                                             .creationTick = entity.creationTick,
+                                                             .firstTick    = tick,
+                                                             .sentCount    = 0,
+                                                         });
+                    if (inserted || transmission->second.creationTick != entity.creationTick) {
+                        transmission->second = SEntityTransmission{
+                            .creationTick = entity.creationTick,
+                            .firstTick    = tick,
+                            .sentCount    = 0,
+                        };
+                        std::erase_if(mPendingDestructions, [&entity](const auto& destruction) {
+                            return destruction.id == entity.id;
+                        });
+                    }
+                }
+                for (auto transmission = mEntityTransmissions.begin();
+                     transmission != mEntityTransmissions.end();) {
+                    if (currentEntityIds.contains(transmission->first)) {
+                        ++transmission;
+                        continue;
+                    }
+                    const auto id = transmission->first;
+                    const bool alreadyPending =
+                        std::ranges::any_of(mPendingDestructions, [id](const auto& destruction) {
+                            return destruction.id == id;
+                        });
+                    if (!alreadyPending)
+                        mPendingDestructions.push_back(SPendingDestruction{
+                            .id           = id,
+                            .creationTick = transmission->second.creationTick,
+                            .firstTick    = tick,
+                            .sentCount    = 0,
+                        });
+                    transmission = mEntityTransmissions.erase(transmission);
+                }
+
+                if ((tick + SNAPSHOT_POLICY.offset) % SNAPSHOT_POLICY.interval == 0) {
+                    SSceneData snapshotScene;
+                    snapshotScene.tick = mSceneData.tick;
+                    snapshotScene.entities.reserve(mSceneData.entities.size());
+                    for (const auto& entity : mSceneData.entities) {
+                        auto filtered = entity;
+                        filtered.components.clear();
+                        for (const auto& component : entity.components) {
+                            if (component.empty())
+                                continue;
+                            const auto type = static_cast<AComponent::eType>(component.front());
+                            if (std::ranges::any_of(SNAPSHOT_COMPONENTS, [type](const auto allowed) {
+                                    return allowed == type;
+                                }))
+                                filtered.components.push_back(component);
+                        }
+                        snapshotScene.entities.push_back(std::move(filtered));
+                    }
+                    packet = Net::makeSnapshot(snapshotScene);
                 } else {
                     std::vector<Game::SUpdateEntity> updates;
+                    const auto shouldResend = [tick](std::uint64_t firstTick, std::uint64_t sentCount,
+                                                     std::uint64_t interval, std::uint64_t repeat) {
+                        return sentCount < repeat &&
+                            (sentCount == 0 ||
+                             (tick >= firstTick && (tick - firstTick) % interval == 0));
+                    };
+
+                    const auto componentType = [](const std::vector<std::uint8_t>& bytes) {
+                        return bytes.empty() ? AComponent::eType::POSITION :
+                                               static_cast<AComponent::eType>(bytes.front());
+                    };
+
                     for (const auto& entity : mSceneData.entities) {
+                        auto                transmission = mEntityTransmissions.find(entity.id);
+
                         Game::SUpdateEntity update{
                             .id         = entity.id,
                             .remove     = false,
                             .components = {},
                         };
-                        const auto addComponent = [&update](const AComponent& component) {
-                            std::vector<std::uint8_t> bytes;
-                            component.serialize(bytes);
-                            update.components.push_back(std::move(bytes));
-                        };
-                        for (const auto& [type, config] : COMPONENT_UPDATE_INTERVALS) {
-                            if ((tick + config.offset) % config.interval != 0)
-                                continue;
-                            if (type == AComponent::eType::POSITION)
-                                addComponent(SCPosition{entity.x, entity.y});
-                            else if (type == AComponent::eType::HEALTH)
-                                addComponent(SCHealth{entity.health});
+                        const bool creationDue =
+                            shouldResend(transmission->second.firstTick, transmission->second.sentCount,
+                                         ENTITY_CREATION_RESEND_INTERVAL, ENTITY_CREATION_RESEND_REPEAT);
+                        if (creationDue &&
+                            transmission->second.sentCount < ENTITY_CREATION_RESEND_REPEAT) {
+                            update.components = entity.components;
+                            ++transmission->second.sentCount;
+                        } else {
+                            for (const auto& [type, config] : COMPONENT_UPDATE_POLICY) {
+                                if ((tick + config.offset) % config.interval != 0)
+                                    continue;
+                                for (const auto& component : entity.components) {
+                                    if (componentType(component) == type)
+                                        update.components.push_back(component);
+                                }
+                            }
                         }
                         if (!update.components.empty())
                             updates.push_back(std::move(update));
                     }
-                    packet = Net::makeUpdate(tick, updates);
+
+                    for (auto destruction = mPendingDestructions.begin();
+                         destruction != mPendingDestructions.end();) {
+                        if (shouldResend(destruction->firstTick, destruction->sentCount,
+                                         ENTITY_DESTRUCTION_RESEND_INTERVAL,
+                                         ENTITY_DESTRUCTION_RESEND_REPEAT)) {
+                            updates.push_back(Game::SUpdateEntity{
+                                .id         = destruction->id,
+                                .remove     = true,
+                                .components = {},
+                            });
+                            ++destruction->sentCount;
+                        }
+                        if (destruction->sentCount >= ENTITY_DESTRUCTION_RESEND_REPEAT)
+                            destruction = mPendingDestructions.erase(destruction);
+                        else
+                            ++destruction;
+                    }
+                    if (!updates.empty())
+                        packet = Net::makeUpdate(tick, updates);
                 }
                 if (!packet.empty()) {
                     mLastSentTick = tick;
@@ -197,6 +292,8 @@ void CServerNetworkThread::run() {
             }
         } else {
             mHasSentTick = false;
+            mEntityTransmissions.clear();
+            mPendingDestructions.clear();
         }
 
         std::unique_lock lock(mtex);

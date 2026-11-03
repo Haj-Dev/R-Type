@@ -351,50 +351,16 @@ namespace Game {
 
     class CSnapshotSystem {
       public:
-        [[nodiscard]] std::vector<SSnapshotEntity> capture(Ecs::CRegistry& registry) const {
-            std::vector<SSnapshotEntity> result;
+        [[nodiscard]] std::vector<SEntityComponents> capture(Ecs::CRegistry& registry) const {
+            std::vector<SEntityComponents> result;
             result.reserve(registry.size());
-            registry.each<SCPosition, SCEntityType>(
-                [&](Ecs::SEntity entity, SCPosition& position, SCEntityType& type) {
-                    const auto*     health = registry.get<SCHealth>(entity);
-                    SSnapshotEntity snapshot{
-                        .id       = entity.index,
-                        .kind     = type.value,
-                        .x        = position.x,
-                        .y        = position.y,
-                        .health   = static_cast<std::int16_t>(health == nullptr ? 0 : health->value),
-                        .layer    = 0,
-                        .scale    = 1.0F,
-                        .offsetX  = 0.0F,
-                        .offsetY  = 0.0F,
-                        .rotation = 0.0F,
-                        .texture  = {},
-                    };
-                    if (const auto* shape = registry.get<SCDrawableShape>(entity))
-                        snapshot.layer = shape->layer;
-                    if (const auto* sprite = registry.get<SCDrawableSprite>(entity)) {
-                        snapshot.layer    = sprite->layer;
-                        snapshot.scale    = sprite->scale;
-                        snapshot.offsetX  = sprite->offset.x;
-                        snapshot.offsetY  = sprite->offset.y;
-                        snapshot.rotation = sprite->rotation;
-                        snapshot.texture  = sprite->texture;
-                    }
-                    if (const auto* atlas = registry.get<SCDrawableSpriteAtlas>(entity)) {
-                        snapshot.atlas         = true;
-                        snapshot.baseDimension = atlas->baseDimension;
-                        snapshot.frames        = atlas->frames;
-                        snapshot.frameDuration = atlas->frameDuration;
-                        snapshot.variant       = atlas->variant;
-                        snapshot.layer         = atlas->layer;
-                        snapshot.scale         = atlas->scale;
-                        snapshot.offsetX       = atlas->offset.x;
-                        snapshot.offsetY       = atlas->offset.y;
-                        snapshot.rotation      = atlas->rotation;
-                        snapshot.texture       = atlas->texture;
-                    }
-                    result.push_back(std::move(snapshot));
-                });
+            CComponentRegistry components;
+            registry.eachEntity([&](Ecs::SEntity entity) {
+                SEntityComponents snapshot{
+                    .id = entity.index, .creationTick = entity.creationTick, .components = {}};
+                snapshot.components = components.serialize(registry, entity);
+                result.push_back(std::move(snapshot));
+            });
             return result;
         }
     };

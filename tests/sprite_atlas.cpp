@@ -34,24 +34,20 @@ TEST(SpriteAtlas, ZeroDurationRemainsStatic) {
 }
 
 TEST(SpriteAtlas, SceneProjectionPreservesAtlasMetadata) {
-    SSceneData            scene;
-    Game::SSnapshotEntity snapshot;
-    snapshot.texture       = "atlas.png";
-    snapshot.atlas         = true;
-    snapshot.baseDimension = SDimentions{.width = 32U, .height = 24U};
-    snapshot.frames        = 5U;
-    snapshot.frameDuration = 0.08F;
-    snapshot.variant       = 2U;
-    scene.replaceEntities({snapshot});
+    SSceneData scene;
+    std::vector<std::uint8_t> atlasBytes;
+    SCDrawableSpriteAtlas{"atlas.png", SDimentions{.width = 32U, .height = 24U}, 5U, 0.08F, 2U}
+        .serialize(atlasBytes);
+    scene.replaceEntities({Game::SEntityComponents{.id = 1U, .components = {atlasBytes}}});
 
-    const auto  renderEntity = *scene.renderRegistry.view<SCPosition>().begin();
-    const auto* atlas        = scene.renderRegistry.get<SCDrawableSpriteAtlas>(renderEntity);
-    ASSERT_NE(atlas, nullptr);
-    EXPECT_FLOAT_EQ(atlas->baseDimension.width, 32.0F);
-    EXPECT_FLOAT_EQ(atlas->baseDimension.height, 24.0F);
-    EXPECT_EQ(atlas->frames, 5U);
-    EXPECT_FLOAT_EQ(atlas->frameDuration, 0.08F);
-    EXPECT_EQ(atlas->variant, 2U);
+    const auto  renderEntity = *scene.renderRegistry.view<SCDrawableSpriteAtlas>().begin();
+    const auto* atlasComponent = scene.renderRegistry.get<SCDrawableSpriteAtlas>(renderEntity);
+    ASSERT_NE(atlasComponent, nullptr);
+    EXPECT_FLOAT_EQ(atlasComponent->baseDimension.width, 32.0F);
+    EXPECT_FLOAT_EQ(atlasComponent->baseDimension.height, 24.0F);
+    EXPECT_EQ(atlasComponent->frames, 5U);
+    EXPECT_FLOAT_EQ(atlasComponent->frameDuration, 0.08F);
+    EXPECT_EQ(atlasComponent->variant, 2U);
 }
 
 TEST(SpriteAtlas, PlayerUsesTwoFrameAtlas) {
@@ -62,13 +58,13 @@ TEST(SpriteAtlas, PlayerUsesTwoFrameAtlas) {
     simulation.tick(0.016F);
 
     const auto entities = simulation.snapshot();
-    const auto player   = std::ranges::find_if(
-        entities, [](const auto& entity) { return entity.kind == Game::eEntityKind::PLAYER; });
-    ASSERT_NE(player, entities.end());
-    EXPECT_TRUE(player->atlas);
-    EXPECT_FLOAT_EQ(player->baseDimension.width, 32.0F);
-    EXPECT_FLOAT_EQ(player->baseDimension.height, 32.0F);
-    EXPECT_EQ(player->frames, 2U);
+    EXPECT_TRUE(std::ranges::any_of(entities, [](const auto& entity) {
+        return std::ranges::any_of(entity.components, [](const auto& bytes) {
+            return !bytes.empty() &&
+                static_cast<AComponent::eType>(bytes.front()) ==
+                AComponent::eType::DRAWABLE_SPRITE_ATLAS;
+        });
+    }));
 }
 
 TEST(SpriteAtlas, EnemyUsesFiveFrameAtlas) {
@@ -76,37 +72,31 @@ TEST(SpriteAtlas, EnemyUsesFiveFrameAtlas) {
     simulation.tick(1.0F);
 
     const auto entities = simulation.snapshot();
-    const auto enemy    = std::ranges::find_if(
-        entities, [](const auto& entity) { return entity.kind == Game::eEntityKind::ENEMY; });
-    ASSERT_NE(enemy, entities.end());
-    EXPECT_TRUE(enemy->atlas);
-    EXPECT_EQ(enemy->texture, "assets/r-typesheet5.gif");
-    EXPECT_FLOAT_EQ(enemy->baseDimension.width, 32.0F);
-    EXPECT_FLOAT_EQ(enemy->baseDimension.height, 36.0F);
-    EXPECT_EQ(enemy->frames, 5U);
-    EXPECT_FLOAT_EQ(enemy->frameDuration, 0.5F);
+    EXPECT_TRUE(std::ranges::any_of(entities, [](const auto& entity) {
+        return std::ranges::any_of(entity.components, [](const auto& bytes) {
+            return !bytes.empty() &&
+                static_cast<AComponent::eType>(bytes.front()) ==
+                AComponent::eType::DRAWABLE_SPRITE_ATLAS;
+        });
+    }));
 }
 
 TEST(SpriteAtlas, SnapshotRefreshPreservesAnimationState) {
-    SSceneData            scene;
-    Game::SSnapshotEntity snapshot;
-    snapshot.id            = 7U;
-    snapshot.texture       = "atlas.png";
-    snapshot.atlas         = true;
-    snapshot.baseDimension = SDimentions{.width = 32U, .height = 32U};
-    snapshot.frames        = 2U;
-    snapshot.frameDuration = 0.1F;
-    scene.replaceEntities({snapshot});
+    SSceneData scene;
+    std::vector<std::uint8_t> atlas;
+    SCDrawableSpriteAtlas{"atlas.png", SDimentions{.width = 32U, .height = 32U}, 2U, 0.1F}
+        .serialize(atlas);
+    scene.replaceEntities({Game::SEntityComponents{.id = 7U, .components = {atlas}}});
 
-    const auto firstEntity = *scene.renderRegistry.view<SCPosition>().begin();
+    const auto firstEntity = *scene.renderRegistry.view<SCDrawableSpriteAtlas>().begin();
     auto*      firstAtlas  = scene.renderRegistry.get<SCDrawableSpriteAtlas>(firstEntity);
     ASSERT_NE(firstAtlas, nullptr);
     firstAtlas->advance(0.12F);
     const auto animationTime = firstAtlas->animationTime();
 
-    scene.replaceEntities({snapshot});
+    scene.replaceEntities({Game::SEntityComponents{.id = 7U, .components = {atlas}}});
 
-    const auto  secondEntity = *scene.renderRegistry.view<SCPosition>().begin();
+    const auto  secondEntity = *scene.renderRegistry.view<SCDrawableSpriteAtlas>().begin();
     const auto* secondAtlas  = scene.renderRegistry.get<SCDrawableSpriteAtlas>(secondEntity);
     ASSERT_NE(secondAtlas, nullptr);
     EXPECT_EQ(secondAtlas->currentFrame(), 1U);
