@@ -184,17 +184,29 @@ The selection also left room for a later schema-validation layer. The parser
 handles syntax and types; the game code remains responsible for validating
 domain rules such as required enemy fields and valid spawn modes.
 
-## 4. Testing
+## 4. Test libraries and strategy
 
-GoogleTest is used by the protocol, ECS, controls, room, chat, simulation, and
-sprite-atlas tests. CMake's `gtest_discover_tests` integrates the executable
-with CTest.
+The project uses GoogleTest for protocol, ECS, controls, room, chat,
+simulation, and sprite-atlas tests. GoogleTest defines the assertions and test
+cases; CTest is the build-system test runner that discovers and executes the
+compiled tests through CMake's `gtest_discover_tests` integration.
 
 ### Requirements at project start
 
-The project needed tests for protocol encoding, ECS lifecycle rules, room and
-chat behavior, player actions, and deterministic simulation behavior. Tests had
-to run through CMake and CTest on all supported platforms.
+The testing stack needed to cover several different kinds of correctness:
+
+- **Unit tests** for ECS handles, component pools, player actions, and utility
+   types.
+- **Protocol tests** for binary encoding, malformed packets, size limits, and
+   round trips.
+- **Simulation tests** for deterministic movement, collisions, spawning, and
+   snapshots.
+- **Stateful feature tests** for rooms, chat, and connection-related behavior.
+- **Cross-platform execution** through CMake and CTest on supported platforms.
+
+The framework also needed readable failure messages, fixtures or helpers for
+shared setup, parameterized tests for protocol variations, and a conventional
+workflow that could run locally and in CI.
 
 | Framework | Strengths | Costs and risks | Fit for R-Type |
 | --- | --- | --- | --- |
@@ -213,6 +225,21 @@ tests easy to run in local builds and CI without adding custom test tooling.
 doctest would have been a strong choice if minimizing compile time were the
 primary constraint. GoogleTest offered a better balance of familiarity,
 documentation, and long-term test-suite flexibility for this project.
+
+### Test runner and mocking considerations
+
+CTest was retained as the execution layer because it is already part of CMake,
+works across the supported platforms, and integrates with `gtest_discover_tests`
+without requiring a second test orchestration system. This separates test
+definition from test execution: GoogleTest provides the test semantics while
+CMake and CTest handle discovery, filtering, and reporting.
+
+A dedicated mocking library was not selected initially. Most important behavior
+is deterministic domain logic that can be tested with real registries, protocol
+buffers, and simulation state. Introducing mocks for the ECS or network layer
+would have added abstractions before the ownership boundaries were stable.
+Mocks can still be justified later for external services such as master-server
+discovery or failure-injection tests around network disconnects.
 
 ## 5. ECS strategy
 
