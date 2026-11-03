@@ -29,7 +29,7 @@ Required:
 
 - CMake 3.20 or newer
 - Ninja
-- A C++23 compiler: GCC 11+, Clang 14+, or a recent MSVC toolchain
+- A C++23 compiler: GCC 15+, Clang 17+, or a recent MSVC toolchain
 - Git, for dependency downloads performed by CPM.cmake
 
 Optional development tools:
