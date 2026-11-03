@@ -1,9 +1,7 @@
 #include "Shared/Types.hpp"
-#include "Shared/Components/Velocity.hpp"
 
 #include <gtest/gtest.h>
 
-#include <type_traits>
 #include <vector>
 
 TEST(NetworkProtocol, TcpHelloRoundTripsUdpPort) {
@@ -18,6 +16,25 @@ TEST(NetworkProtocol, TcpWelcomeRoundTripsPlayerId) {
     std::uint8_t playerId = 0;
     ASSERT_TRUE(Net::readTcpWelcome(packet.data(), packet.size(), playerId));
     EXPECT_EQ(playerId, 3);
+}
+
+TEST(NetworkProtocol, TcpWelcomeRejectsMalformedPackets) {
+    const auto   valid    = Net::makeTcpWelcome(1);
+    std::uint8_t playerId = 0;
+
+    auto         wrongMagic = valid;
+    wrongMagic.at(0)        = 'X';
+    EXPECT_FALSE(Net::readTcpWelcome(wrongMagic.data(), wrongMagic.size(), playerId));
+
+    EXPECT_FALSE(Net::readTcpWelcome(valid.data(), valid.size() - 1, playerId));
+}
+
+TEST(NetworkProtocol, TcpWelcomeAcceptsConnectionId) {
+    const auto   packet   = Net::makeTcpWelcome(255);
+    std::uint8_t playerId = 0;
+
+    EXPECT_TRUE(Net::readTcpWelcome(packet.data(), packet.size(), playerId));
+    EXPECT_EQ(playerId, 255);
 }
 
 TEST(NetworkProtocol, InputRoundTripsEveryActionFlag) {

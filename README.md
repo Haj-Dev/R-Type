@@ -60,12 +60,28 @@ rm -rf build
 
 ## Running
 
-Start the server, then run a client and pass the server IP:
+Start the master server (no arguments), then one or more game servers, then a client:
 
 ```bash
-./build/R-Type_server
-./build/R-Type_client 127.0.0.1
+# Master: registry and discovery, TCP 7100
+./build/debug/r-type_server
+
+# Game server: registers with the master at 127.0.0.1
+./build/debug/r-type_server 127.0.0.1 --name server1 --advertise 127.0.0.1 \
+    --tcp-port 7000 --udp-port 7001
+
+# A second game server on different ports
+./build/debug/r-type_server 127.0.0.1 --name server2 --advertise 127.0.0.1 \
+    --tcp-port 7010 --udp-port 7011
+
+# Client: discovers servers through the master
+./build/debug/r-type_client 127.0.0.1
 ```
+
+Useful options:
+
+- Game server: `--name`, `--advertise`, `--tcp-port`, `--udp-port`, `--master-port`.
+- Client: `--master-port`, `--server <name>` to auto-select a server.
 
 On Windows the executables are produced under `build/` with a `Release` or `Debug` configuration subfolder depending on the generator/IDE; adjust the paths accordingly (for example `build/R-Type_client.exe` or `build/Release/R-Type_client.exe`).
 

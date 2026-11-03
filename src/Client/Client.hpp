@@ -3,6 +3,7 @@
 #include "Shared/SceneData.hpp"
 #include "Shared/PlayerActions.hpp"
 #include "Shared/Lobby.hpp"
+#include "Shared/ControlProtocol.hpp"
 
 #include "Client/DrawThread/DrawThread.hpp"
 #include "Client/LogicThread/LogicThread.hpp"
@@ -17,7 +18,9 @@
 
 class CClient {
   public:
-    explicit CClient(const std::string& serverAddress);
+    explicit CClient(const std::string& masterAddress,
+                     std::uint16_t      masterPort      = Net::Control::DefaultMasterPort,
+                     const std::string& preferredServer = {});
     ~CClient();
 
     CClient(const CClient&)                 = delete;

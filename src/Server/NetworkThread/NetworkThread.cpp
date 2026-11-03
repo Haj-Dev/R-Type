@@ -10,13 +10,13 @@
 #include <unordered_set>
 #include <vector>
 
-CServerNetworkThread::CServerNetworkThread(asio::io_context& io, SSceneData& sceneData,
-                                           SPLayerActions& playerActions, std::mutex& sceneMutex,
-                                           std::atomic_bool&        running,
-                                           std::condition_variable& stopCondition,
-                                           std::atomic_bool&        gameActive) :
+CServerNetworkThread::CServerNetworkThread(
+    asio::io_context& io, SSceneData& sceneData, SPLayerActions& playerActions, std::mutex& sceneMutex,
+    std::atomic_bool& running, std::condition_variable& stopCondition, std::atomic_bool& gameActive,
+    std::uint16_t tcpPort, std::uint16_t udpPort, SServerStatus& serverStatus, std::mutex& statusMutex) :
     mIo(io), mSceneData(sceneData), mPlayerActions(playerActions), mtex(sceneMutex), mRunning(running),
-    mStopCondition(stopCondition), mGameActive(gameActive), mSocket(io), mAcceptor(io) {}
+    mStopCondition(stopCondition), mGameActive(gameActive), mTcpPort(tcpPort), mUdpPort(udpPort),
+    mServerStatus(serverStatus), mStatusMutex(statusMutex), mSocket(io), mAcceptor(io) {}
 
 CServerNetworkThread::~CServerNetworkThread() {
     join();
@@ -42,15 +42,16 @@ void CServerNetworkThread::run() {
     std::vector<std::uint8_t>            buffer(Net::MaxUdpPayloadSize);
     asio::ip::udp::endpoint              sender;
     mSocket.open(asio::ip::udp::v4());
-    mSocket.bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), Net::DefaultUdpPort));
+    mSocket.bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), mUdpPort));
     mSocket.non_blocking(true);
     mAcceptor.open(asio::ip::tcp::v4());
     mAcceptor.set_option(asio::socket_base::reuse_address(true));
-    mAcceptor.bind(asio::ip::tcp::endpoint(asio::ip::tcp::v4(), Net::DefaultTcpPort));
+    mAcceptor.bind(asio::ip::tcp::endpoint(asio::ip::tcp::v4(), mTcpPort));
     mAcceptor.listen();
     mAcceptor.non_blocking(true);
-    std::cout << "[Server] Listening for TCP handshakes on port " << Net::DefaultTcpPort
-              << " and UDP gameplay on port " << Net::DefaultUdpPort << '\n';
+    std::cout << "[Server] Listening for TCP handshakes on port " << mTcpPort
+              << " and UDP gameplay on port " << mUdpPort << '\n';
+    updateServerStatus();
 
     while (mRunning.load()) {
         for (;;) {
@@ -89,7 +90,7 @@ void CServerNetworkThread::run() {
             const auto    freeSlot = std::ranges::find_if(
                 mClients, [](const auto& client) { return client.address().is_unspecified(); });
             if (!Net::readTcpHello(pending->data.data(), pending->received, udpPort) ||
-                (freeSlot == mClients.end() && mClients.size() >= SPLayerActions::MaxPlayers)) {
+                (freeSlot == mClients.end() && mClients.size() >= Room::MaxConnections)) {
                 std::cerr << "[Server] Rejected invalid or excess TCP handshake\n";
                 pending = mPending.erase(pending);
                 continue;
@@ -106,6 +107,7 @@ void CServerNetworkThread::run() {
                 mControlSockets.at(playerId) = std::move(pending->socket);
             }
             mTcpBuffers.at(playerId).clear();
+            mConnectionGameplayIds.at(playerId).reset();
             sendFrame(playerId, Net::makeTcpWelcome(playerId));
             std::cout << "[Server] Client " << address << ':' << udpPort << " connected as player "
                       << static_cast<unsigned>(playerId) << '\n';
@@ -132,15 +134,21 @@ void CServerNetworkThread::run() {
                                                           Net::ePacketType::SNAPSHOT;
             auto       client = std::ranges::find(mClients, sender);
             if (type == Net::ePacketType::INPUT && client != mClients.end()) {
-                const auto id = static_cast<std::size_t>(std::distance(mClients.begin(), client));
+                const auto connectionId =
+                    static_cast<std::uint8_t>(std::distance(mClients.begin(), client));
+                // Spectators have no character: whatever they send over UDP is dropped unread.
+                if (mRoomManager.isSpectator(connectionId))
+                    continue;
+                const auto gameplayId = mConnectionGameplayIds.at(connectionId);
+                if (!gameplayId)
+                    continue;
                 const auto activeRoom = mRoomManager.activeRoom();
-                if (!activeRoom ||
-                    mRoomManager.roomIdOfPlayer(static_cast<std::uint8_t>(id)) != activeRoom)
+                if (!activeRoom || mRoomManager.roomIdOfPlayer(connectionId) != activeRoom)
                     continue;
                 SPlayerActionState action;
                 if (Net::readInput(buffer.data(), size, action)) {
                     std::scoped_lock lock(mtex);
-                    mPlayerActions.states.at(id) = action;
+                    mPlayerActions.states.at(*gameplayId) = action;
                 } else {
                     std::cerr << "[Server] Discarded malformed input from " << sender << '\n';
                 }
@@ -285,7 +293,7 @@ void CServerNetworkThread::run() {
                 }
             }
             if (!packet.empty()) {
-                for (const auto playerId : mRoomManager.playersInRoom(*activeRoom)) {
+                for (const auto playerId : mRoomManager.occupantsInRoom(*activeRoom)) {
                     if (playerId < mClients.size() && !mClients.at(playerId).address().is_unspecified())
                         mSocket.send_to(asio::buffer(packet), mClients.at(playerId));
                 }
@@ -348,6 +356,21 @@ void CServerNetworkThread::processLobby(std::uint8_t playerId) {
 
 void CServerNetworkThread::handleLobbyCommand(std::uint8_t playerId, Net::eLobbyCommand command,
                                               const std::uint8_t* payload, std::size_t payloadSize) {
+    // A spectator watching a running game may only chat or leave. Every other command it
+    // sends is ignored without a reply: it has no character to act with and must not
+    // change the room (launching, joining another room, ...) from the audience.
+    if (spectatingActiveGame(playerId)) {
+        switch (command) {
+            case Net::eLobbyCommand::JOIN:
+            case Net::eLobbyCommand::ROOM_LIST_REQUEST:
+            case Net::eLobbyCommand::CREATE_ROOM:
+            case Net::eLobbyCommand::SELECT_ROOM:
+            case Net::eLobbyCommand::SPECTATE_ROOM:
+            case Net::eLobbyCommand::LAUNCH_GAME: return;
+            default: break;
+        }
+    }
+
     switch (command) {
         case Net::eLobbyCommand::JOIN: {
             std::string name;
@@ -360,6 +383,7 @@ void CServerNetworkThread::handleLobbyCommand(std::uint8_t playerId, Net::eLobby
                 sendRejection(playerId, result.reason, result.message);
                 return;
             }
+            updateServerStatus();
             sendRoomList(playerId);
             return;
         }
@@ -382,6 +406,7 @@ void CServerNetworkThread::handleLobbyCommand(std::uint8_t playerId, Net::eLobby
                 sendRejection(playerId, result.reason, result.message);
                 return;
             }
+            updateServerStatus();
             const auto room = mRoomManager.roomOfPlayer(playerId);
             if (room)
                 sendRoomInfo(playerId, Net::eLobbyCommand::ROOM_JOINED, *room);
@@ -398,11 +423,35 @@ void CServerNetworkThread::handleLobbyCommand(std::uint8_t playerId, Net::eLobby
                 sendRejection(playerId, result.reason, result.message);
                 return;
             }
+            updateServerStatus();
             const auto room = mRoomManager.roomOfPlayer(playerId);
             if (room) {
                 sendRoomInfo(playerId, Net::eLobbyCommand::ROOM_JOINED, *room);
                 broadcastRoom(roomId, Net::makeRoomInfo(Net::eLobbyCommand::ROOM_STATE, *room),
                               playerId);
+            }
+            return;
+        }
+        case Net::eLobbyCommand::SPECTATE_ROOM: {
+            std::uint16_t roomId = 0;
+            if (!Net::readSpectateRoom(payload, payloadSize, roomId)) {
+                sendRejection(playerId, Room::eRejectReason::ROOM_NOT_FOUND, "Invalid room selection");
+                return;
+            }
+            const auto result = mRoomManager.spectateRoom(playerId, roomId);
+            if (!result.ok) {
+                sendRejection(playerId, result.reason, result.message);
+                return;
+            }
+            updateServerStatus();
+            const auto room = mRoomManager.roomOfPlayer(playerId);
+            if (room) {
+                sendRoomInfo(playerId, Net::eLobbyCommand::ROOM_JOINED, *room);
+                broadcastRoom(roomId, Net::makeRoomInfo(Net::eLobbyCommand::ROOM_STATE, *room),
+                              playerId);
+                // Joining a running game: go straight to watching it.
+                if (room->state == Room::eState::IN_GAME)
+                    sendFrame(playerId, Net::makeGameStarted(roomId, Room::SpectatorGameplayId));
             }
             return;
         }
@@ -412,15 +461,22 @@ void CServerNetworkThread::handleLobbyCommand(std::uint8_t playerId, Net::eLobby
                 return;
             }
             const auto roomId = mRoomManager.roomIdOfPlayer(playerId);
+            auto       spectators =
+                roomId ? mRoomManager.spectatorsInRoom(*roomId) : std::vector<std::uint8_t>{};
             const auto result = mRoomManager.leaveRoom(playerId);
             if (!result.ok) {
                 sendRejection(playerId, result.reason, result.message);
                 return;
             }
+            updateServerStatus();
             {
-                std::scoped_lock lock(mtex);
-                mPlayerActions.connected.at(playerId) = false;
-                mPlayerActions.states.at(playerId)    = SPlayerActionState{};
+                const auto gameplayId = mConnectionGameplayIds.at(playerId);
+                if (gameplayId) {
+                    std::scoped_lock lock(mtex);
+                    mPlayerActions.connected.at(*gameplayId) = false;
+                    mPlayerActions.states.at(*gameplayId)    = SPlayerActionState{};
+                }
+                mConnectionGameplayIds.at(playerId).reset();
             }
             sendFrame(playerId, Net::makeRoomLeft());
             sendRoomList(playerId);
@@ -429,6 +485,7 @@ void CServerNetworkThread::handleLobbyCommand(std::uint8_t playerId, Net::eLobby
                 if (room)
                     broadcastRoom(*roomId, Net::makeRoomInfo(Net::eLobbyCommand::ROOM_STATE, *room));
             }
+            releaseOrphanedSpectators(spectators, playerId);
             if (!mRoomManager.activeRoom())
                 mGameActive.store(false);
             return;
@@ -444,21 +501,45 @@ void CServerNetworkThread::handleLobbyCommand(std::uint8_t playerId, Net::eLobby
                 sendRejection(playerId, result.reason, result.message);
                 return;
             }
+            updateServerStatus();
             if (!roomId)
                 return;
             const auto room = mRoomManager.roomInfo(*roomId);
             if (!room)
                 return;
-            const auto started = Net::makeGameStarted(*roomId);
+            std::uint8_t gameplayId = 0;
             for (const auto& player : room->players) {
-                sendFrame(player.id, started);
-                std::scoped_lock lock(mtex);
-                mPlayerActions.connected.at(player.id) = true;
-                mPlayerActions.states.at(player.id)    = SPlayerActionState{};
+                mConnectionGameplayIds.at(player.id) = gameplayId;
+                sendFrame(player.id, Net::makeGameStarted(*roomId, gameplayId));
+                {
+                    std::scoped_lock lock(mtex);
+                    mPlayerActions.connected.at(gameplayId) = true;
+                    mPlayerActions.states.at(gameplayId)    = SPlayerActionState{};
+                }
+                ++gameplayId;
             }
+            for (const auto& spectator : room->spectators)
+                sendFrame(spectator.id, Net::makeGameStarted(*roomId, Room::SpectatorGameplayId));
             mGameActive.store(true);
             std::cout << "[Server] Room " << *roomId << " launched with " << room->players.size()
-                      << " player(s)\n";
+                      << " player(s) and " << room->spectators.size() << " spectator(s)\n";
+            return;
+        }
+        case Net::eLobbyCommand::CHAT_SEND: {
+            SCChatMessage message;
+            if (!Net::readChatSend(payload, payloadSize, message)) {
+                sendRejection(playerId, Room::eRejectReason::SERVER_ERROR, "Invalid chat message");
+                return;
+            }
+            const auto roomId = mRoomManager.roomIdOfPlayer(playerId);
+            if (!roomId) {
+                sendRejection(playerId, Room::eRejectReason::NOT_IN_ROOM, "Join a room to chat");
+                return;
+            }
+            broadcastRoom(*roomId,
+                          Net::makeChatMessage(SCChatMessage{++mChatSequence, playerId,
+                                                             mRoomManager.playerName(playerId),
+                                                             std::move(message.text)}));
             return;
         }
         default:
@@ -511,10 +592,25 @@ void CServerNetworkThread::sendRejection(std::uint8_t playerId, Room::eRejectRea
 
 void CServerNetworkThread::broadcastRoom(std::uint16_t roomId, const std::vector<std::uint8_t>& frame,
                                          std::optional<std::uint8_t> except) {
-    for (const auto playerId : mRoomManager.playersInRoom(roomId)) {
+    for (const auto playerId : mRoomManager.occupantsInRoom(roomId)) {
         if (except && *except == playerId)
             continue;
         sendFrame(playerId, frame);
+    }
+}
+
+bool CServerNetworkThread::spectatingActiveGame(std::uint8_t playerId) const {
+    const auto roomId = mRoomManager.roomIdOfPlayer(playerId);
+    return roomId && mRoomManager.isSpectator(playerId) && mRoomManager.activeRoom() == roomId;
+}
+
+void CServerNetworkThread::releaseOrphanedSpectators(const std::vector<std::uint8_t>& spectators,
+                                                     std::uint8_t                     except) {
+    for (const auto spectatorId : spectators) {
+        if (spectatorId == except || mRoomManager.roomIdOfPlayer(spectatorId))
+            continue;
+        sendFrame(spectatorId, Net::makeRoomLeft());
+        sendRoomList(spectatorId);
     }
 }
 
@@ -522,11 +618,17 @@ void CServerNetworkThread::disconnectPlayer(std::uint8_t playerId) {
     if (playerId >= mControlSockets.size())
         return;
     const auto roomId = mRoomManager.roomIdOfPlayer(playerId);
+    auto spectators   = roomId ? mRoomManager.spectatorsInRoom(*roomId) : std::vector<std::uint8_t>{};
     mRoomManager.removePlayer(playerId);
+    updateServerStatus();
     {
-        std::scoped_lock lock(mtex);
-        mPlayerActions.connected.at(playerId) = false;
-        mPlayerActions.states.at(playerId)    = SPlayerActionState{};
+        const auto gameplayId = mConnectionGameplayIds.at(playerId);
+        if (gameplayId) {
+            std::scoped_lock lock(mtex);
+            mPlayerActions.connected.at(*gameplayId) = false;
+            mPlayerActions.states.at(*gameplayId)    = SPlayerActionState{};
+        }
+        mConnectionGameplayIds.at(playerId).reset();
     }
     asio::error_code error;
     if (mControlSockets.at(playerId).close(error)) {
@@ -540,7 +642,17 @@ void CServerNetworkThread::disconnectPlayer(std::uint8_t playerId) {
         if (room)
             broadcastRoom(*roomId, Net::makeRoomInfo(Net::eLobbyCommand::ROOM_STATE, *room));
     }
+    releaseOrphanedSpectators(spectators, playerId);
     if (!mRoomManager.activeRoom())
         mGameActive.store(false);
     std::cerr << "[Server] Player " << static_cast<unsigned>(playerId) << " disconnected\n";
+}
+
+void CServerNetworkThread::updateServerStatus() {
+    std::scoped_lock lock(mStatusMutex);
+    mServerStatus.rooms            = mRoomManager.roomCount();
+    mServerStatus.connectedPlayers = mRoomManager.connectedPlayerCount();
+    mServerStatus.maxPlayers       = Room::MaxConnections;
+    mServerStatus.joinableRooms    = mRoomManager.joinableRoomCount();
+    mServerStatus.state            = Net::Control::eServerState::READY;
 }

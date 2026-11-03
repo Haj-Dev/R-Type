@@ -47,23 +47,30 @@ void CDrawThread::run() {
         if (!inGame) {
             std::scoped_lock lock(mtex);
             mLobbyUI.draw(mRenderSystem, mLobbyState, mLobbyCommands);
+            mChatUI.draw(mRenderSystem, mLobbyState, mLobbyCommands);
         } else {
+            bool spectating = false;
             {
                 std::scoped_lock lock(mtex);
-                std::size_t      playerId = 0;
-                for (std::size_t i = 0; i < SPLayerActions::MaxPlayers; ++i) {
-                    if (mPlayerActions.connected.at(i)) {
-                        playerId = i;
-                        break;
+                spectating = Lobby::isSpectating(mLobbyState);
+                // A spectator has no character, so it produces no input at all.
+                if (!spectating) {
+                    std::size_t playerId = 0;
+                    for (std::size_t i = 0; i < SPLayerActions::MaxPlayers; ++i) {
+                        if (mPlayerActions.connected.at(i)) {
+                            playerId = i;
+                            break;
+                        }
                     }
+                    const bool typing                  = mChatUI.typing(mLobbyState);
+                    mPlayerActions.states.at(playerId) = SPlayerActionState{
+                        .up    = !typing && IsKeyDown(KEY_UP),
+                        .down  = !typing && IsKeyDown(KEY_DOWN),
+                        .left  = !typing && IsKeyDown(KEY_LEFT),
+                        .right = !typing && IsKeyDown(KEY_RIGHT),
+                        .fire  = !typing && IsKeyDown(KEY_SPACE),
+                    };
                 }
-                mPlayerActions.states.at(playerId) = SPlayerActionState{
-                    .up    = IsKeyDown(KEY_UP),
-                    .down  = IsKeyDown(KEY_DOWN),
-                    .left  = IsKeyDown(KEY_LEFT),
-                    .right = IsKeyDown(KEY_RIGHT),
-                    .fire  = IsKeyDown(KEY_SPACE),
-                };
             }
             {
                 std::scoped_lock lock(mtex);
@@ -74,8 +81,17 @@ void CDrawThread::run() {
                 mRenderSystem.loadTextures(mSceneData.renderRegistry);
                 mRenderSystem.draw(mSceneData.renderRegistry);
             }
-            mRenderSystem.drawText("Arrow keys: move   Space: fire", 20, 20, 20,
-                                   SColor{.r = 255, .g = 255, .b = 255, .a = 255});
+            if (!spectating) {
+                mRenderSystem.drawText("Arrow keys: move   Space: fire", 20, 20, 20,
+                                       SColor{.r = 255, .g = 255, .b = 255, .a = 255});
+            }
+            {
+                std::scoped_lock lock(mtex);
+                if (spectating)
+                    mLobbyUI.drawSpectatorHud(mRenderSystem);
+                mLobbyUI.drawLeaveButton(mRenderSystem, mLobbyCommands);
+                mChatUI.draw(mRenderSystem, mLobbyState, mLobbyCommands);
+            }
         }
         mRenderSystem.endFrame();
     }

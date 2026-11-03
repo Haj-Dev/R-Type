@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "Server/Room/RoomManager.hpp"
+#include "Server/ServerStatus.hpp"
 #include "Shared/LobbyProtocol.hpp"
 #include "Shared/SceneData.hpp"
 #include "Shared/PlayerActions.hpp"
@@ -21,7 +22,9 @@ class CServerNetworkThread {
   public:
     CServerNetworkThread(asio::io_context& io, SSceneData& sceneData, SPLayerActions& playerActions,
                          std::mutex& sceneMutex, std::atomic_bool& running,
-                         std::condition_variable& stopCondition, std::atomic_bool& gameActive);
+                         std::condition_variable& stopCondition, std::atomic_bool& gameActive,
+                         std::uint16_t tcpPort, std::uint16_t udpPort, SServerStatus& serverStatus,
+                         std::mutex& statusMutex);
     ~CServerNetworkThread();
 
     CServerNetworkThread(const CServerNetworkThread&)            = delete;
@@ -42,7 +45,11 @@ class CServerNetworkThread {
     void sendRejection(std::uint8_t playerId, Room::eRejectReason reason, const std::string& message);
     void broadcastRoom(std::uint16_t roomId, const std::vector<std::uint8_t>& frame,
                        std::optional<std::uint8_t> except = std::nullopt);
+    [[nodiscard]] bool spectatingActiveGame(std::uint8_t playerId) const;
+    // Tells spectators whose room closed (its last player left) that they are back in the lobby.
+    void releaseOrphanedSpectators(const std::vector<std::uint8_t>& spectators, std::uint8_t except);
     void disconnectPlayer(std::uint8_t playerId);
+    void updateServerStatus();
 
     asio::io_context&                                                 mIo;
     SSceneData&                                                       mSceneData;
@@ -51,6 +58,10 @@ class CServerNetworkThread {
     std::atomic_bool&                                                 mRunning;
     std::condition_variable&                                          mStopCondition;
     std::atomic_bool&                                                 mGameActive;
+    std::uint16_t                                                     mTcpPort;
+    std::uint16_t                                                     mUdpPort;
+    SServerStatus&                                                    mServerStatus;
+    std::mutex&                                                       mStatusMutex;
     std::thread                                                       mThread;
     asio::ip::udp::socket                                             mSocket;
     asio::ip::tcp::acceptor                                           mAcceptor;
@@ -60,6 +71,8 @@ class CServerNetworkThread {
     CRoomManager                                                      mRoomManager;
     std::uint64_t                                                     mLastSentTick = 0;
     bool                                                              mHasSentTick  = false;
+    std::array<std::optional<std::uint8_t>, Room::MaxConnections>     mConnectionGameplayIds;
+    std::uint32_t                                                     mChatSequence = 0;
 
     struct SEntityTransmission {
         std::uint64_t creationTick = 0;
