@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 
 TEST(SpriteAtlas, SelectsFrameFromCurrentTick) {
     SCDrawableSpriteAtlas atlas{"atlas.png", SDimentions{.width = 16U, .height = 16U}, 4U, 15U};
@@ -38,20 +39,31 @@ TEST(SpriteAtlas, SceneProjectionPreservesAtlasMetadata) {
     EXPECT_EQ(atlasComponent->variant, 2U);
 }
 
-TEST(SpriteAtlas, PlayerUsesTwoFrameAtlas) {
+TEST(SpriteAtlas, PlayersUseFourFrameAtlasWithDistinctVariants) {
     Game::CSimulation simulation = Game::CSimulation::deterministic();
     SPLayerActions    actions;
-    actions.connected.at(0) = true;
+    actions.connected.fill(true);
     simulation.applyActions(actions);
     simulation.tick(0.016F);
 
-    const auto entities = simulation.snapshot();
-    EXPECT_TRUE(std::ranges::any_of(entities, [](const auto& entity) {
-        return std::ranges::any_of(entity.components, [](const auto& bytes) {
-            return !bytes.empty() &&
-                static_cast<AComponent::eType>(bytes.front()) ==
-                AComponent::eType::DRAWABLE_SPRITE_ATLAS;
+    SSceneData scene;
+    scene.replaceEntities(simulation.snapshot());
+
+    std::array<bool, SPLayerActions::MaxPlayers> foundPlayers{};
+    scene.renderRegistry.each<SCPlayer, SCDrawableSpriteAtlas>(
+        [&foundPlayers](Ecs::SEntity, const SCPlayer& player, const SCDrawableSpriteAtlas& atlas) {
+            ASSERT_LT(player.id, SPLayerActions::MaxPlayers);
+            foundPlayers.at(player.id) = true;
+            EXPECT_EQ(atlas.texture, "assets/player_atlas.png");
+            EXPECT_FLOAT_EQ(atlas.baseDimension.width, 32.0F);
+            EXPECT_FLOAT_EQ(atlas.baseDimension.height, 32.0F);
+            EXPECT_EQ(atlas.frames, 4U);
+            EXPECT_EQ(atlas.frameDuration, 30U);
+            EXPECT_EQ(atlas.variant, player.id % 4U);
         });
+
+    EXPECT_TRUE(std::ranges::all_of(foundPlayers, [](bool found) {
+        return found;
     }));
 }
 

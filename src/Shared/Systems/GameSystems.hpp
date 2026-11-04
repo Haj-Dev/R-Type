@@ -5,6 +5,7 @@
 #include "Shared/Components/Collider.hpp"
 #include "Shared/Components/EntityType.hpp"
 #include "Shared/Components/Health.hpp"
+#include "Shared/Components/LevelState.hpp"
 #include "Shared/Components/Player.hpp"
 #include "Shared/Components/Position.hpp"
 #include "Shared/Components/Projectile.hpp"
@@ -16,8 +17,9 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
-#include <iostream>
 #include <random>
+#include <stdexcept>
+#include <string>
 #include <toml++/toml.hpp>
 #include <toml++/impl/array.hpp>
 #include <toml++/impl/forward_declarations.hpp>
@@ -210,22 +212,34 @@ namespace Game {
 
     class CEnemySpawnSystem {
       public:
-        explicit CEnemySpawnSystem(std::vector<CEnemySpawn> spawns) : enemySpawns(std::move(spawns)) {}
+        explicit CEnemySpawnSystem(std::vector<CEnemySpawn> spawns) :
+            levels_{std::move(spawns)}, enemySpawns(levels_.front()) {}
 
-        explicit CEnemySpawnSystem(const std::string& filepath) {
-            toml::table tbl;
-            try {
-                tbl = toml::parse_file(filepath);
-            } catch (const toml::parse_error& err) {
-                std::cerr << "Error parsing file: " << err << std::endl;
-                return;
-            }
-            toml::array* array = tbl.at_path("enemies").as_array();
-            if (array == nullptr)
-                return;
-            enemySpawns.clear();
-            for (toml::node& tableEntry : *array)
-                enemySpawns.emplace_back(*tableEntry.as_table());
+        explicit CEnemySpawnSystem(std::vector<std::vector<CEnemySpawn>> levelWaves,
+                                   float transitionDuration = 3.0F) :
+            levels_(std::move(levelWaves)), transitionDuration_(transitionDuration) {
+            if (levels_.empty())
+                throw std::invalid_argument("a campaign must contain at least one level");
+            enemySpawns = levels_.front();
+        }
+
+        explicit CEnemySpawnSystem(const std::vector<std::string>& levelFiles) {
+            if (levelFiles.empty())
+                throw std::invalid_argument("a campaign must contain at least one level file");
+            levels_.reserve(levelFiles.size());
+            for (const auto& levelFile : levelFiles)
+                levels_.push_back(parseLevelFile(levelFile));
+            enemySpawns = levels_.front();
+        }
+
+        static CEnemySpawnSystem campaign() {
+            return CEnemySpawnSystem({
+                "assets/maps/init.toml",
+                "assets/maps/level_2.toml",
+                "assets/maps/level_3.toml",
+                "assets/maps/level_4.toml",
+                "assets/maps/level_5.toml",
+            });
         }
 
         static CEnemySpawnSystem deterministic() {
@@ -233,8 +247,80 @@ namespace Game {
         }
 
         void update(Ecs::CRegistry& registry, float delta) {
-            timer_ += delta;
+            if (finished_)
+                return;
+            if (transitionRemaining_ > 0.0F) {
+                transitionRemaining_ = std::max(0.0F, transitionRemaining_ - delta);
+                if (transitionRemaining_ == 0.0F)
+                    loadNextLevel();
+                return;
+            }
 
+            timer_ += delta;
+            spawnReadyEnemies(registry);
+            if (enemySpawns.empty() && !hasLivingEnemies(registry)) {
+                if (hasNextLevel())
+                    transitionRemaining_ = transitionDuration_;
+                else
+                    finished_ = true;
+            }
+        }
+
+        [[nodiscard]] SCLevelState state() const {
+            return SCLevelState{static_cast<std::uint8_t>(levelIndex_ + 1U),
+                                static_cast<std::uint8_t>(levelCount()),
+                                transitionRemaining_, finished_};
+        }
+
+        [[nodiscard]] std::size_t levelCount() const noexcept {
+            return levels_.size();
+        }
+
+      private:
+        static std::vector<CEnemySpawn> parseLevelFile(const std::string& filepath) {
+            const toml::table  tbl = toml::parse_file(filepath);
+            const toml::array* array = tbl.at_path("enemies").as_array();
+            if (array == nullptr)
+                throw std::runtime_error("level file has no [[enemies]] entries: " + filepath);
+            std::vector<CEnemySpawn> spawns;
+            for (const toml::node& tableEntry : *array) {
+                const toml::table* entry = tableEntry.as_table();
+                if (entry == nullptr)
+                    throw std::runtime_error("invalid enemy wave in " + filepath);
+                spawns.emplace_back(*entry);
+            }
+            return spawns;
+        }
+
+        void loadLevel(std::size_t index) {
+            levelIndex_ = index;
+            timer_ = 0.0F;
+            transitionRemaining_ = 0.0F;
+            enemySpawns = levels_.at(index);
+        }
+
+        void loadNextLevel() {
+            if (!hasNextLevel()) {
+                finished_ = true;
+                return;
+            }
+            loadLevel(levelIndex_ + 1U);
+        }
+
+        [[nodiscard]] bool hasNextLevel() const noexcept {
+            return levelIndex_ + 1U < levelCount();
+        }
+
+        static bool hasLivingEnemies(Ecs::CRegistry& registry) {
+            bool found = false;
+            registry.each<SCEntityType>([&found](Ecs::SEntity, const SCEntityType& type) {
+                if (type.value == eEntityKind::ENEMY)
+                    found = true;
+            });
+            return found;
+        }
+
+        void spawnReadyEnemies(Ecs::CRegistry& registry) {
             for (CEnemySpawn& enemySpawn : enemySpawns) {
                 if (enemySpawn.getNextSpawnTime() > timer_)
                     continue;
@@ -242,8 +328,8 @@ namespace Game {
                 if (enemySpawn.getType() == "random") {
                     std::random_device              rd;
                     std::mt19937                    gen(rd());
-                    std::uniform_int_distribution<> dis(0,
-                                                        Game::WorldHeight - (enemySpawn.getSize() * 2));
+                    std::uniform_int_distribution<> dis(
+                        0, static_cast<int>(Game::WorldHeight - (enemySpawn.getSize() * 2)));
                     registry.emplace<SCPosition>(
                         entity, SCPosition{WorldWidth + 100.0F, (dis(gen) + enemySpawn.getSize())});
                 } else {
@@ -267,8 +353,13 @@ namespace Game {
         }
 
       private:
+        std::vector<std::vector<CEnemySpawn>> levels_;
         std::vector<CEnemySpawn> enemySpawns;
-        float                    timer_ = 0.0F;
+        std::size_t               levelIndex_ = 0;
+        float                     timer_ = 0.0F;
+        float                     transitionDuration_ = 3.0F;
+        float                     transitionRemaining_ = 0.0F;
+        bool                      finished_ = false;
     };
 
     class CCollisionSystem {

@@ -13,7 +13,7 @@ namespace Game {
 
     class CSimulation {
       public:
-        CSimulation() : enemySpawnSystem_("assets/maps/init.toml") {}
+        CSimulation() : CSimulation(CEnemySpawnSystem::campaign()) {}
 
         static CSimulation deterministic() {
             return CSimulation(CEnemySpawnSystem::deterministic());
@@ -42,9 +42,13 @@ namespace Game {
             playerSystem_.synchronizeConnectedPlayers(registry_, actions_, isServer);
             playerSystem_.update(registry_, actions_, delta);
             movementSystem_.update(registry_, delta);
-            enemySpawnSystem_.update(registry_, delta);
             collisionSystem_.update(registry_);
             cleanupSystem_.update(registry_);
+            if (isServer) {
+                enemySpawnSystem_.update(registry_, delta);
+                registry_.each<SCLevelState>(
+                    [this](Ecs::SEntity, SCLevelState& state) { state = enemySpawnSystem_.state(); });
+            }
         }
 
         [[nodiscard]] std::vector<SEntityComponents> snapshot() {
@@ -62,7 +66,10 @@ namespace Game {
         CSnapshotSystem   snapshotSystem_;
 
         explicit CSimulation(CEnemySpawnSystem enemySpawnSystem) :
-            enemySpawnSystem_(std::move(enemySpawnSystem)) {}
+            enemySpawnSystem_(std::move(enemySpawnSystem)) {
+            const auto levelState = registry_.create();
+            registry_.emplace<SCLevelState>(levelState, enemySpawnSystem_.state());
+        }
     };
 
 } // namespace Game

@@ -7,6 +7,7 @@
 #include "DrawableSpriteAtlas.hpp"
 #include "EntityType.hpp"
 #include "Health.hpp"
+#include "LevelState.hpp"
 #include "Player.hpp"
 #include "Position.hpp"
 #include "Projectile.hpp"
@@ -46,6 +47,7 @@ class CComponentRegistry {
         registerType<SCDrawableSpriteAtlas>();
         registerType<SCEntityType>();
         registerType<SCChatMessage>();
+        registerType<SCLevelState>();
     }
 
     template <typename T>

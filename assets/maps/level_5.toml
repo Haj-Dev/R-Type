@@ -1,0 +1,30 @@
+[[enemies]]
+type = "column"
+start = 0
+startY = 100
+gapY = 78
+size = 19
+health = 3
+count = 8
+spawnSpeed = 0.65
+speed = 135
+
+[[enemies]]
+type = "random"
+start = 4
+size = 19
+health = 3
+count = 10
+spawnSpeed = 0.6
+speed = 145
+
+[[enemies]]
+type = "linear"
+start = 10
+startY = 120
+gapY = 76
+size = 20
+health = 4
+count = 8
+spawnSpeed = 0.65
+speed = 150

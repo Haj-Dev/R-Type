@@ -17,6 +17,7 @@ class AComponent {
         DRAWABLE_SPRITE_ATLAS,
         ENTITY_TYPE,
         CHAT_MESSAGE,
+        LEVEL_STATE,
     };
 
     AComponent()          = default;
