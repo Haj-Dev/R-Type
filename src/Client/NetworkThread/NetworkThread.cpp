@@ -262,10 +262,10 @@ bool CNetworkThread::connectToGameServer(const Lobby::SServerInfo& server) {
 }
 
 void CNetworkThread::runGameSession() {
-    constexpr auto            networkInterval = std::chrono::nanoseconds(1'000'000'000 / 60);
+    constexpr auto                       networkInterval = std::chrono::nanoseconds(1'000'000'000 / 60);
     const Timing::CScopedTimerResolution timerResolution;
-    Timing::CFixedRate networkRate(networkInterval);
-    std::vector<std::uint8_t> buffer(Net::MaxUdpPayloadSize);
+    Timing::CFixedRate                   networkRate(networkInterval);
+    std::vector<std::uint8_t>            buffer(Net::MaxUdpPayloadSize);
     while (mRunning.load()) {
         processLobbyCommands();
         processLobbyMessages();
