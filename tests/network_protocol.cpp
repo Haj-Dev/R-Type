@@ -138,7 +138,7 @@ TEST(SceneData, UpdatesMergeComponentsAndRemoveEntities) {
 }
 
 TEST(SceneData, UpdatesIntroduceNewEntities) {
-    SSceneData scene;
+    SSceneData                scene;
     std::vector<std::uint8_t> position;
     SCPosition{25.0F, 35.0F}.serialize(position);
 

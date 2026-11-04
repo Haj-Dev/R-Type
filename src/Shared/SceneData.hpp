@@ -58,19 +58,17 @@ struct SSceneData {
 
             if (it == nextEntities.end()) {
                 nextEntities.push_back(Game::SEntityComponents{
-                    .id = update.id,
+                    .id         = update.id,
                     .components = update.components,
                 });
                 continue;
             }
 
             for (const auto& component : update.components) {
-                const auto type = static_cast<AComponent::eType>(component.front());
-                const auto existing = std::ranges::find_if(
-                    it->components, [type](const auto& current) {
-                        return !current.empty() &&
-                            static_cast<AComponent::eType>(current.front()) == type;
-                    });
+                const auto type     = static_cast<AComponent::eType>(component.front());
+                const auto existing = std::ranges::find_if(it->components, [type](const auto& current) {
+                    return !current.empty() && static_cast<AComponent::eType>(current.front()) == type;
+                });
                 if (existing == it->components.end())
                     it->components.push_back(component);
                 else
