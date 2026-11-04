@@ -42,27 +42,40 @@ struct SSceneData {
         for (const auto& update : updates) {
             if (!update.remove) {
                 for (const auto& bytes : update.components) {
-                    if (!registry.deserialize(bytes))
+                    if (registry.deserialize(bytes) == nullptr)
                         return false;
                 }
             }
         }
         for (const auto& update : updates) {
-            const auto it = std::ranges::find_if(
+            auto it = std::ranges::find_if(
                 nextEntities, [&update](const auto& entity) { return entity.id == update.id; });
             if (update.remove) {
                 if (it != nextEntities.end())
                     nextEntities.erase(it);
                 continue;
             }
-            auto entity = it == nextEntities.end() ? Game::SEntityComponents{} : *it;
-            if (it == nextEntities.end())
+
+            if (it == nextEntities.end()) {
+                nextEntities.push_back(Game::SEntityComponents{
+                    .id = update.id,
+                    .components = update.components,
+                });
                 continue;
-            entity.id = update.id;
-            entity.components.insert(entity.components.end(), update.components.begin(),
-                                     update.components.end());
-            if (it == nextEntities.end())
-                nextEntities.push_back(std::move(entity));
+            }
+
+            for (const auto& component : update.components) {
+                const auto type = static_cast<AComponent::eType>(component.front());
+                const auto existing = std::ranges::find_if(
+                    it->components, [type](const auto& current) {
+                        return !current.empty() &&
+                            static_cast<AComponent::eType>(current.front()) == type;
+                    });
+                if (existing == it->components.end())
+                    it->components.push_back(component);
+                else
+                    *existing = component;
+            }
         }
         replaceEntities(std::move(nextEntities));
         return true;

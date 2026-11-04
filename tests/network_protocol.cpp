@@ -133,4 +133,19 @@ TEST(SceneData, UpdatesMergeComponentsAndRemoveEntities) {
     }));
     ASSERT_EQ(scene.entities.size(), 1U);
     EXPECT_EQ(scene.entities.front().id, 7U);
+    ASSERT_EQ(scene.entities.front().components.size(), 1U);
+    EXPECT_EQ(scene.entities.front().components.front(), position);
+}
+
+TEST(SceneData, UpdatesIntroduceNewEntities) {
+    SSceneData scene;
+    std::vector<std::uint8_t> position;
+    SCPosition{25.0F, 35.0F}.serialize(position);
+
+    ASSERT_TRUE(scene.applyUpdates({
+        Game::SUpdateEntity{.id = 11, .components = {position}},
+    }));
+    ASSERT_EQ(scene.entities.size(), 1U);
+    EXPECT_EQ(scene.entities.front().id, 11U);
+    ASSERT_EQ(scene.entities.front().components.size(), 1U);
 }
