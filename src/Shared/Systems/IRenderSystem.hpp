@@ -21,6 +21,6 @@ class IRenderSystem {
     virtual void clear(SColor color) const                                                        = 0;
     virtual void endFrame() const                                                                 = 0;
     virtual void closeWindow() const                                                              = 0;
-    virtual void draw(Ecs::CRegistry& registry) const                                             = 0;
+    virtual void draw(Ecs::CRegistry& registry, std::uint64_t currentTick) const                  = 0;
     virtual void drawCircle(int x, int y, int r, SColor color) const                              = 0;
 };

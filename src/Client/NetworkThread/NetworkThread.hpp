@@ -21,7 +21,9 @@ class CNetworkThread {
                    std::mutex& sceneMutex, std::atomic_bool& running,
                    std::condition_variable& stopCondition, const std::string& masterAddress,
                    std::uint16_t masterPort, const std::string& preferredServer,
-                   Lobby::SLobbyState& lobbyState, std::deque<Lobby::SCommand>& lobbyCommands);
+                   Lobby::SLobbyState& lobbyState, std::deque<Lobby::SCommand>& lobbyCommands,
+                   std::atomic_bool& authoritativeState);
+
     ~CNetworkThread();
 
     CNetworkThread(const CNetworkThread&)               = delete;
@@ -63,6 +65,7 @@ class CNetworkThread {
     SPLayerActions&          mPlayerActions;
     std::mutex&              mtex;
     std::atomic_bool&        mRunning;
+    std::atomic_bool&        mAuthoritativeState;
     std::condition_variable& mStopCondition;
     std::string              mMasterAddress;
     std::uint16_t            mMasterPort;
@@ -79,7 +82,9 @@ class CNetworkThread {
     std::uint8_t                 mGameplayId = 0;
     std::atomic_bool             mConnected  = false;
     std::vector<std::uint8_t>    mTcpBuffer;
-    bool                         mInGame     = false;
-    bool                         mSpectating = false;
+    std::uint64_t                mLastReceivedTick = 0;
+    bool                         mHasReceivedTick  = false;
+    bool                         mInGame           = false;
+    bool                         mSpectating       = false;
     Chat::CChatSystem            mChatSystem;
 };

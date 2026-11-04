@@ -1,112 +1,292 @@
 # R-Type
-R-Type is a C++ multiplayer game with a Raylib client, an Asio server, and a shared entity-component-system simulation.
 
-## Environment
+R-Type is a C++23 multiplayer game inspired by the classic shoot 'em up. It
+contains a Raylib client, an Asio-based server, a master server for discovery,
+and a shared entity-component-system simulation.
 
-This project is built with CMake and uses CPM.cmake to fetch third-party dependencies (raylib, Asio, GoogleTest) at configure time. A POSIX-like environment (Linux, macOS) or Windows is supported.
+The server is authoritative: clients send input and render snapshots received
+from the game server. A master server keeps track of available game servers;
+it is not part of the gameplay data path.
 
-Required tools (minimum):
+## Features
 
-- CMake 3.20+
-- Ninja (recommended generator)
-- A C++23-capable compiler (Clang/LLVM or GCC)
-- optional: LLVM**21** for formatting and linting (clang-format, clang-tidy)
+- Master-server discovery and health checks
+- Multiple named game servers on one host or across a network
+- TCP handshake and lobby protocol
+- UDP gameplay input and authoritative snapshots
+- Rooms for up to four players
+- In-game room chat
+- Shared ECS used by the server simulation and client render world
+- Unit tests for ECS, networking, controls, rooms, chat, and simulation
 
-On Linux/macOS you typically need: a system C/C++ toolchain (gcc/clang), CMake and Ninja.
-On Windows for native desktop builds you need:
+## Requirements
 
-- Visual Studio Build Tools (MSVC) for system libraries
-- LLVM/Clang (tested) or MSVC (untested) compiler toolchain
-- Ninja (for the CMake Ninja generator)
+The project is built with CMake and uses CPM.cmake to download Raylib, Asio,
+toml++, and GoogleTest during configuration. You do not need to install those
+libraries separately.
 
-## Building the project
+Required:
 
-A minimal out-of-source build (cross-platform):
+- CMake 3.20 or newer
+- Ninja
+- A C++23 compiler: GCC 15+, Clang 17+, or a recent MSVC toolchain
+- Git, for dependency downloads performed by CPM.cmake
+
+Optional development tools:
+
+- `ccache`, enabled automatically when available
+- LLVM tools such as `clang-format`, `clang-tidy`, `llvm-cov`, and
+    `llvm-profdata`
+
+### Linux
+
+On Debian or Ubuntu, install the system toolchain with:
 
 ```bash
-cmake -S . -B build -G Ninja
-cmake --build build --config Release
+sudo apt update
+sudo apt install build-essential cmake ninja-build git clang clang-format clang-tidy
 ```
 
-Notes:
-- CMake will download and configure dependencies via CPM at configure time; no manual dependency installation is required for the bundled libraries.
-- You can set CMake options (e.g. `-B build -DCMAKE_BUILD_TYPE=Debug`) as you normally would.
+On Arch Linux, the equivalent packages are:
 
-### Windows (native) build notes
+```bash
+sudo pacman -S --needed base-devel cmake ninja git clang
+```
 
-For native Windows desktop builds use the Ninja generator and a supported compiler. Example (PowerShell / cmd):
+### Windows
+
+Open PowerShell as Administrator and install the required tools with
+`winget`:
 
 ```powershell
-cmake -S . -B build -G Ninja
-cmake --build build --config Release
+winget install --id Microsoft.VisualStudio.2022.BuildTools --exact `
+    --override "--wait --passive --norestart --add Microsoft.VisualStudio.Workload.VCTools"
+winget install --id Kitware.CMake --exact
+winget install --id Ninja-build.Ninja --exact
+winget install --id Git.Git --exact
 ```
 
-Requirements for Windows desktop builds:
-- Visual Studio Build Tools (MSVC) or the full Visual Studio with C++ workload installed. This provides the MSVC toolchain required for building desktop executables.
-- If you want to build with Clang/LLVM on Windows, install LLVM/Clang and make sure the clang/clang++ executables are on your PATH and a compatible toolchain file or generator is selected.
-- Ninja installed and available on PATH (CMake uses it as the generator above).
+The Visual Studio command installs the MSVC compiler, Windows SDK, and C++
+build tools through the **Desktop development with C++** workload. If the
+Visual Studio Installer opens, accept the defaults and let it finish before
+continuing.
 
-If you are building on Windows from WSL2, the Linux instructions (installing system packages and using CMake/Ninja inside WSL) are applicable instead.
+LLVM/Clang is optional but useful for formatting, linting, and coverage:
 
-## Cleaning
-
-Remove the CMake build dir to clean artifacts:
-
-```bash
-rm -rf build
+```powershell
+winget install --id LLVM.LLVM --exact
 ```
 
-(There are helper scripts like `build.sh`, `lint.sh`, `format.sh` and `coverage.sh` present in the repository for CI or convenience; you can use them if they match your workflow.)
+Close and reopen PowerShell after installation, then verify the tools:
 
-## Running
+```powershell
+cmake --version
+ninja --version
+git --version
+clang-format --version
+```
 
-Start the master server (no arguments), then one or more game servers, then a client:
+For MSVC builds, open **Developer PowerShell for VS 2022** from the Start menu
+before configuring the project. This loads `cl.exe`, the Windows SDK, and the
+MSVC linker into the environment. From that shell, use the normal CMake
+commands:
+
+```powershell
+git clone <repository-url>
+Set-Location R-Type
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+cmake --build build
+```
+
+The resulting programs are `build\r-type_server.exe`,
+`build\r-type_client.exe`, and `build\rtype_tests.exe`. WSL2 users can follow
+the Linux instructions inside WSL instead of installing the native Windows
+toolchain.
+
+## Build
+
+Clone the repository and enter its directory:
 
 ```bash
-# Master: registry and discovery, TCP 7100
+git clone <repository-url>
+cd R-Type
+```
+
+### Recommended helper script
+
+On Linux or WSL, `build.sh` creates a separate build directory for the selected
+configuration. On macOS, use the manual CMake commands below or replace
+`nproc` in the script with the local CPU-count command:
+
+```bash
+./build.sh debug
+./build.sh release
+```
+
+The resulting executables are:
+
+```text
+build/debug/r-type_server
+build/debug/r-type_client
+build/debug/rtype_tests
+```
+
+Use the corresponding `build/release/` paths for a release build.
+
+### Manual CMake build
+
+For a single build directory on any supported platform:
+
+```bash
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+cmake --build build
+```
+
+For a release build, replace `Debug` with `Release`. Disable tests with
+`-DBUILD_TESTING=OFF`. CMake stores downloaded sources in `.cache/CPM` unless
+`CPM_SOURCE_CACHE` is already set.
+
+On Windows PowerShell, the same CMake commands apply. Executables are written
+to the configured build directory, commonly `build\r-type_client.exe` and
+`build\r-type_server.exe` with Ninja.
+
+## Run locally
+
+Open separate terminals and start the services in this order.
+
+### 1. Start the master server
+
+The master server is the same `r-type_server` executable started without
+arguments. It listens on TCP port `7100` by default.
+
+```bash
 ./build/debug/r-type_server
+```
 
-# Game server: registers with the master at 127.0.0.1
-./build/debug/r-type_server 127.0.0.1 --name server1 --advertise 127.0.0.1 \
-    --tcp-port 7000 --udp-port 7001
+### 2. Start a game server
 
-# A second game server on different ports
-./build/debug/r-type_server 127.0.0.1 --name server2 --advertise 127.0.0.1 \
-    --tcp-port 7010 --udp-port 7011
+This process registers itself with the master and listens for clients on TCP
+port `7000` and UDP port `7001` by default:
 
-# Client: discovers servers through the master
+```bash
+./build/debug/r-type_server 127.0.0.1 \
+    --name server1 \
+    --advertise 127.0.0.1 \
+    --tcp-port 7000 \
+    --udp-port 7001
+```
+
+To run another game server on the same machine, give it a different name and
+pair of gameplay ports:
+
+```bash
+./build/debug/r-type_server 127.0.0.1 \
+    --name server2 \
+    --advertise 127.0.0.1 \
+    --tcp-port 7010 \
+    --udp-port 7011
+```
+
+The `--advertise` address must be reachable by clients. For a LAN or internet
+deployment, use the host's reachable address or DNS name and allow the master,
+gameplay TCP, and gameplay UDP ports through the firewall.
+
+### 3. Start a client
+
+The client contacts the master, displays the available servers, and connects to
+the selected game server:
+
+```bash
 ./build/debug/r-type_client 127.0.0.1
 ```
 
-Useful options:
-
-- Game server: `--name`, `--advertise`, `--tcp-port`, `--udp-port`, `--master-port`.
-- Client: `--master-port`, `--server <name>` to auto-select a server.
-
-On Windows the executables are produced under `build/` with a `Release` or `Debug` configuration subfolder depending on the generator/IDE; adjust the paths accordingly (for example `build/R-Type_client.exe` or `build/Release/R-Type_client.exe`).
-
-## Tests and linting
-
-Run the test suite (when `BUILD_TESTING=ON`) with CTest or the provided script:
+To select a server by name without using the selection screen:
 
 ```bash
-cmake --build build --config Release --target all
-ctest --test-dir build --output-on-failure
-# or use the included wrapper
-./coverage.sh
+./build/debug/r-type_client 127.0.0.1 --server server1
 ```
 
-Run lint checks with the repository helper:
+Use `--master-port <port>` with either a game server or client when the master
+is not using port `7100`.
+
+Stop long-running processes with `Ctrl+C`.
+
+## Command-line reference
+
+### Game server
+
+```text
+r-type_server
+r-type_server <master-ip> [--name <name>] [--advertise <address>]
+                            [--tcp-port <port>] [--udp-port <port>]
+                            [--master-port <port>]
+```
+
+With no arguments it starts the master. With a master address it starts a game
+server and registers it with that master.
+
+### Client
+
+```text
+r-type_client <master-ip> [--master-port <port>] [--server <name>]
+```
+
+## Tests, formatting, and coverage
+
+Run the unit tests with CTest:
+
+```bash
+cmake --build build/debug
+ctest --test-dir build/debug --output-on-failure
+```
+
+Convenience scripts configure a debug build and invoke the relevant target:
 
 ```bash
 ./lint.sh
+./format.sh
 ```
+
+`format.sh` modifies C++ sources in `src/` and `tests/`. The coverage script
+requires Clang's coverage tools and writes an HTML report to
+`build/coverage/report/index.html`:
+
+```bash
+./coverage.sh
+```
+
+To remove generated build and dependency artifacts:
+
+```bash
+rm -rf build .cache
+```
+
+## Project layout
+
+```text
+src/Client/   Client input, networking, lobby, chat, and rendering
+src/Server/   Authoritative simulation, rooms, and gameplay networking
+src/Master/   Server registration, health checks, and discovery
+src/Shared/   ECS, components, systems, world state, and wire protocols
+tests/        GoogleTest unit and integration tests
+docs/         Architecture, protocol, and server-system documentation
+assets/       Maps and game assets
+```
+
+## Documentation
+
+- [Architecture](docs/architecture.md) - source structure, ECS, and simulation
+- [Network protocol](docs/protocol.md) - TCP/UDP packet and lobby formats
+- [Server system](docs/server_system.md) - discovery, registration, rooms, and responsibilities
+- [Level layout](docs/level-layout.md) - level and map conventions
+- [Contributor guide](CONTRIBUTOR.md) - contribution workflow and conventions
+- [Comparative study](docs/library-comparative-study.md) - comparative study
 
 ## Technical stack
 
-- C++ (C++23)
-- raylib (game rendering)
-- Asio (networking)
-- GoogleTest (unit tests)
-- CMake + CPM.cmake (build + dependency fetching)
-- Ninja (recommended generator)
+- C++23
+- Raylib 6.0 for rendering
+- standalone Asio 1.38 for networking
+- toml++ 3.4 for TOML data
+- GoogleTest 1.17 for tests
+- CMake, CPM.cmake, and Ninja

@@ -8,6 +8,7 @@
 #include <mutex>
 #include <optional>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include "Server/Room/RoomManager.hpp"
@@ -73,6 +74,24 @@ class CServerNetworkThread {
     std::array<std::optional<std::uint8_t>, Room::MaxConnections> mConnectionGameplayIds;
     CRoomManager                                                  mRoomManager;
     std::uint32_t                                                 mChatSequence = 0;
+
+    std::uint64_t                                                 mLastSentTick = 0;
+    bool                                                          mHasSentTick  = false;
+
+    struct SEntityTransmission {
+        std::uint64_t creationTick = 0;
+        std::uint64_t firstTick    = 0;
+        std::uint64_t sentCount    = 0;
+    };
+
+    struct SPendingDestruction {
+        std::uint32_t id           = 0;
+        std::uint64_t creationTick = 0;
+        std::uint64_t firstTick    = 0;
+        std::uint64_t sentCount    = 0;
+    };
+    std::unordered_map<std::uint32_t, SEntityTransmission> mEntityTransmissions;
+    std::vector<SPendingDestruction>                       mPendingDestructions;
 
     struct SPendingHandshake {
         asio::ip::tcp::socket                        socket;

@@ -36,7 +36,7 @@ namespace Game {
             });
         }
 
-        void draw(const Ecs::CRegistry& registry) const {
+        void draw(const Ecs::CRegistry& registry, std::uint64_t currentTick) const {
             struct SDrawCommand {
                 int          layer;
                 Ecs::SEntity entity;
@@ -74,7 +74,7 @@ namespace Game {
                           .height = static_cast<float>(image.height),
                     };
                     if (const auto* atlas = registry.get<SCDrawableSpriteAtlas>(command.entity)) {
-                        const auto frame = atlas->currentFrame();
+                        const auto frame = atlas->currentFrame(currentTick);
                         source           = Rectangle{
                                       .x      = atlas->baseDimension.width * static_cast<float>(frame),
                                       .y      = atlas->baseDimension.height * static_cast<float>(atlas->variant),

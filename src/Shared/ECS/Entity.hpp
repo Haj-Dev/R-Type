@@ -16,8 +16,9 @@ namespace Ecs {
     // whenever an index is recycled. This makes stale handles cheap to detect
     // without storing pointers into registry internals.
     struct SEntity {
-        std::uint32_t index      = NullEntityIndex;
-        std::uint32_t generation = 0;
+        std::uint32_t index        = NullEntityIndex;
+        std::uint32_t generation   = 0;
+        std::uint64_t creationTick = 0;
 
         // True only when the handle names a possible entity slot.
         // Use CRegistry::alive() when ownership/lifetime must be verified.

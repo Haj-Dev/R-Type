@@ -1,5 +1,6 @@
 #include "NetworkThread.hpp"
 #include "Shared/ControlProtocol.hpp"
+#include "Shared/FixedRate.hpp"
 #include "Shared/Types.hpp"
 
 #include <array>
@@ -13,11 +14,13 @@ CNetworkThread::CNetworkThread(asio::io_context& io, SSceneData& sceneData,
                                std::atomic_bool& running, std::condition_variable& stopCondition,
                                const std::string& masterAddress, std::uint16_t masterPort,
                                const std::string& preferredServer, Lobby::SLobbyState& lobbyState,
-                               std::deque<Lobby::SCommand>& lobbyCommands) :
+                               std::deque<Lobby::SCommand>& lobbyCommands,
+                               std::atomic_bool&            authoritativeState) :
     mIo(io), mSceneData(sceneData), mPlayerActions(playerActions), mtex(sceneMutex), mRunning(running),
-    mStopCondition(stopCondition), mMasterAddress(masterAddress), mMasterPort(masterPort),
-    mPreferredServer(preferredServer), mLobbyState(lobbyState), mLobbyCommands(lobbyCommands),
-    mSocket(io), mVoiceSocket(io), mTcpSocket(io) {}
+    mAuthoritativeState(authoritativeState), mStopCondition(stopCondition),
+    mMasterAddress(masterAddress), mMasterPort(masterPort), mPreferredServer(preferredServer),
+    mLobbyState(lobbyState), mLobbyCommands(lobbyCommands), mSocket(io), mVoiceSocket(io),
+    mTcpSocket(io) {}
 
 CNetworkThread::~CNetworkThread() {
     join();
@@ -265,8 +268,10 @@ bool CNetworkThread::connectToGameServer(const Lobby::SServerInfo& server) {
 }
 
 void CNetworkThread::runGameSession() {
-    constexpr auto            networkInterval = std::chrono::milliseconds(16);
-    std::vector<std::uint8_t> buffer(Net::MaxUdpPayloadSize);
+    constexpr auto                       networkInterval = std::chrono::nanoseconds(1'000'000'000 / 60);
+    const Timing::CScopedTimerResolution timerResolution;
+    Timing::CFixedRate                   networkRate(networkInterval);
+    std::vector<std::uint8_t>            buffer(Net::MaxUdpPayloadSize);
     while (mRunning.load()) {
         processLobbyCommands();
         processLobbyMessages();
@@ -277,7 +282,7 @@ void CNetworkThread::runGameSession() {
             receiveSnapshots(buffer);
         }
         std::unique_lock lock(mtex);
-        if (mStopCondition.wait_for(lock, networkInterval, [this] { return !mRunning.load(); }))
+        if (!networkRate.wait(mStopCondition, lock, [this] { return !mRunning.load(); }))
             break;
     }
 }
@@ -418,6 +423,12 @@ void CNetworkThread::handleLobbyMessage(Net::eLobbyCommand command, const std::u
             mChatSystem.clearMessages(mLobbyState.chat);
             mLobbyState.phase = Lobby::eLobbyPhase::ROOM_LIST;
             mPlayerActions.connected.fill(false);
+            mLobbyState.gameplayId = 0;
+            mAuthoritativeState.store(false);
+            mSceneData.replaceEntities({});
+            mSceneData.tick   = 0;
+            mLastReceivedTick = 0;
+            mHasReceivedTick  = false;
             break;
         }
         case Net::eLobbyCommand::CHAT_MESSAGE: {
@@ -438,14 +449,20 @@ void CNetworkThread::handleLobbyMessage(Net::eLobbyCommand command, const std::u
                 mGameplayId = gameplayId;
             {
                 std::scoped_lock lock(mtex);
-                mLobbyState.phase = Lobby::eLobbyPhase::IN_GAME;
+                mLobbyState.phase      = Lobby::eLobbyPhase::IN_GAME;
+                mLobbyState.gameplayId = gameplayId;
                 mPlayerActions.connected.fill(false);
                 if (!mSpectating) {
                     mPlayerActions.connected.at(mGameplayId) = true;
                     mPlayerActions.states.at(mGameplayId)    = SPlayerActionState{};
+                    mSceneData.replaceEntities({});
+                    mSceneData.tick = 0;
                 }
             }
-            mInGame = true;
+            mAuthoritativeState.store(false);
+            mLastReceivedTick = 0;
+            mHasReceivedTick  = false;
+            mInGame           = true;
             mStopCondition.notify_all();
             break;
         }
@@ -493,13 +510,31 @@ void CNetworkThread::receiveSnapshots(std::vector<std::uint8_t>& buffer) {
             break;
         if (error)
             break;
-        if (!Net::validPacket(buffer.data(), size, Net::ePacketType::SNAPSHOT))
-            continue;
-        std::vector<Game::SSnapshotEntity> entities;
-        if (!Net::readSnapshot(buffer.data(), size, entities))
-            continue;
-        std::scoped_lock lock(mtex);
-        mSceneData.replaceEntities(std::move(entities));
-        ++mSceneData.tick;
+        if (Net::validPacket(buffer.data(), size, Net::ePacketType::SNAPSHOT)) {
+            std::vector<Game::SEntityComponents> entities;
+            std::uint64_t                        tick = 0;
+            if (!Net::readSnapshot(buffer.data(), size, entities, tick) ||
+                (mHasReceivedTick && tick < mLastReceivedTick))
+                continue;
+            std::scoped_lock lock(mtex);
+            mSceneData.replaceEntities(std::move(entities));
+            mSceneData.tick   = tick;
+            mLastReceivedTick = tick;
+            mHasReceivedTick  = true;
+            mAuthoritativeState.store(true);
+        } else if (Net::validPacket(buffer.data(), size, Net::ePacketType::UPDATE)) {
+            std::vector<Game::SUpdateEntity> updates;
+            std::uint64_t                    tick = 0;
+            if (!Net::readUpdate(buffer.data(), size, updates, tick) ||
+                (mHasReceivedTick && tick < mLastReceivedTick))
+                continue;
+            std::scoped_lock lock(mtex);
+            if (mSceneData.applyUpdates(updates)) {
+                mSceneData.tick   = tick;
+                mLastReceivedTick = tick;
+                mHasReceivedTick  = true;
+                mAuthoritativeState.store(true);
+            }
+        }
     }
 }

@@ -2,10 +2,11 @@
 
 CClient::CClient(const std::string& masterAddress, std::uint16_t masterPort,
                  const std::string& preferredServer) :
-    mLogicThread(mSceneData, mPlayerActions, mtex, mRunning, mStopCondition),
+    mLogicThread(mSceneData, mPlayerActions, mLobbyState, mAuthoritativeState, mtex, mRunning,
+                 mStopCondition),
     mDrawThread(mSceneData, mPlayerActions, mtex, mRunning, mStopCondition, mLobbyState, mLobbyCommands),
     mNetworkThread(mIo, mSceneData, mPlayerActions, mtex, mRunning, mStopCondition, masterAddress,
-                   masterPort, preferredServer, mLobbyState, mLobbyCommands) {
+                   masterPort, preferredServer, mLobbyState, mLobbyCommands, mAuthoritativeState) {
     start();
 }
 

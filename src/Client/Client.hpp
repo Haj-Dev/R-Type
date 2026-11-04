@@ -40,7 +40,8 @@ class CClient {
     mutable std::mutex          mtex;
     asio::io_context            mIo;
     std::condition_variable     mStopCondition;
-    std::atomic_bool            mRunning = false;
+    std::atomic_bool            mRunning            = false;
+    std::atomic_bool            mAuthoritativeState = false;
     SSceneData                  mSceneData;
     SPLayerActions              mPlayerActions;
     Lobby::SLobbyState          mLobbyState;

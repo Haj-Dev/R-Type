@@ -5,15 +5,14 @@
 #include "Serialization.hpp"
 
 #include <cstddef>
-#include <cmath>
-#include <algorithm>
 #include <utility>
 
 struct SCDrawableSpriteAtlas : SCDrawableSprite {
   public:
     SCDrawableSpriteAtlas() = default;
     explicit SCDrawableSpriteAtlas(std::string drawableTexture, SDimentions drawableBaseDimension,
-                                   std::size_t drawableFrames = 1U, float drawableFrameDuration = 0.0F,
+                                   std::size_t   drawableFrames        = 1U,
+                                   std::uint64_t drawableFrameDuration = 1U,
                                    std::size_t drawableVariant = 0U, std::int8_t drawableLayer = 0,
                                    float drawableScale = 1.0F, SCPosition drawableOffset = {},
                                    float drawableRotation = 0.0F) :
@@ -49,34 +48,14 @@ struct SCDrawableSpriteAtlas : SCDrawableSprite {
         Components::append(data, variant);
     }
 
-    SDimentions baseDimension{};
-    std::size_t frames        = 1U;
-    float       frameDuration = 0.0F;
-    std::size_t variant       = 0U;
+    SDimentions               baseDimension{};
+    std::size_t               frames        = 1U;
+    std::uint64_t             frameDuration = 0U;
+    std::size_t               variant       = 0U;
 
-    void        advance(float delta) {
-        if (frames <= 1U || frameDuration <= 0.0F)
-            return;
-        const float elapsed       = currentTime + std::max(0.0F, delta);
-        const auto  elapsedFrames = static_cast<std::size_t>((elapsed + 1.0e-6F) / frameDuration);
-        currentFrameIndex         = (currentFrameIndex + elapsedFrames) % frames;
-        currentTime               = std::fmod(elapsed, frameDuration);
+    [[nodiscard]] std::size_t currentFrame(std::uint64_t currentTick) const {
+        if (frames == 0U || frameDuration == 0U)
+            return 0U;
+        return static_cast<std::size_t>((currentTick / frameDuration) % frames);
     }
-
-    [[nodiscard]] std::size_t currentFrame() const {
-        return frames == 0U ? 0U : std::min(currentFrameIndex, frames - 1U);
-    }
-
-    [[nodiscard]] float animationTime() const {
-        return currentTime;
-    }
-
-    void restoreAnimationState(std::size_t frame, float time) {
-        currentFrameIndex = frame;
-        currentTime       = time;
-    }
-
-  private:
-    float       currentTime       = 0.0F;
-    std::size_t currentFrameIndex = 0U;
 };

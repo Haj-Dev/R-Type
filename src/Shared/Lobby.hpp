@@ -128,8 +128,9 @@ namespace Lobby {
     };
 
     struct SLobbyState {
-        eLobbyPhase                 phase    = eLobbyPhase::CONNECTING;
-        std::uint8_t                playerId = 0;
+        eLobbyPhase                 phase      = eLobbyPhase::CONNECTING;
+        std::uint8_t                playerId   = 0;
+        std::uint8_t                gameplayId = 0;
         std::string                 playerName;
         std::vector<SServerInfo>    servers;
         std::vector<Room::SSummary> rooms;
