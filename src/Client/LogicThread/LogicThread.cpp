@@ -44,7 +44,8 @@ void CLogicThread::run() {
             const bool serverStateReceived = mAuthoritativeState.exchange(false);
             if (inGame && serverStateReceived) {
                 mSimulation.synchronize(mSceneData.entities, mLobbyState.playerId);
-            } else if (inGame) {
+            }
+            if (inGame) {
                 updateLocalSimulation(tickDelta);
             }
             wasInGame = inGame;

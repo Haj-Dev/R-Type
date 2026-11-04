@@ -56,7 +56,9 @@ struct SSceneData {
                 continue;
             }
             auto entity = it == nextEntities.end() ? Game::SEntityComponents{} : *it;
-            entity.id   = update.id;
+            if (it == nextEntities.end())
+                continue;
+            entity.id = update.id;
             entity.components.insert(entity.components.end(), update.components.begin(),
                                      update.components.end());
             if (it == nextEntities.end())

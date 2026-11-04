@@ -27,7 +27,7 @@ namespace Game {
             registry_.clear();
             CComponentRegistry components;
             for (const auto& entity : snapshot) {
-                const auto handle = registry_.create();
+                const auto handle = registry_.createAt(entity.id);
                 for (const auto& bytes : entity.components) {
                     components.apply(registry_, handle, bytes);
                 }

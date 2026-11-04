@@ -513,6 +513,7 @@ void CNetworkThread::receiveSnapshots(std::vector<std::uint8_t>& buffer) {
                 mSceneData.tick   = tick;
                 mLastReceivedTick = tick;
                 mHasReceivedTick  = true;
+                mAuthoritativeState.store(true);
             }
         }
     }

@@ -43,6 +43,19 @@ namespace Ecs {
             return SEntity{.index = index, .generation = generations_.at(index)};
         }
 
+        // Creates a handle at a specific index, used for deterministic replay.
+        [[nodiscard]] SEntity createAt(std::uint32_t index) {
+            if (index >= generations_.size()) {
+                generations_.resize(index + 1, 0);
+                alive_.resize(index + 1, 0);
+            } else if (alive_.at(index) != 0) {
+                throw std::runtime_error("cannot create entity at occupied index");
+            }
+            alive_.at(index) = 1;
+            ++aliveCount_;
+            return SEntity{.index = index, .generation = generations_.at(index)};
+        }
+
         // Destroys an entity and removes all of its components.
         // Stale or already-destroyed handles are ignored.
         void destroy(SEntity e) {
