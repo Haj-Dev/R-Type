@@ -280,6 +280,7 @@ assets/       Maps and game assets
 - [Server system](docs/server_system.md) - discovery, registration, rooms, and responsibilities
 - [Level layout](docs/level-layout.md) - level and map conventions
 - [Contributor guide](CONTRIBUTOR.md) - contribution workflow and conventions
+- [Comparative study](docs/library-comparative-study.md) - comparative study
 
 ## Technical stack
 
