@@ -1,11 +1,7 @@
 #pragma once
 
-#include "Shared/Components/EntityType.hpp"
-#include "Shared/Dimentions.hpp"
-
 #include <cstdint>
-#include <cstddef>
-#include <string>
+#include <vector>
 
 namespace Game {
 
@@ -15,23 +11,16 @@ namespace Game {
     inline constexpr float ProjectileSpeed = 520.0F;
     inline constexpr float FireInterval    = 0.2F;
 
-    struct SSnapshotEntity {
-        std::uint32_t id       = 0;
-        eEntityKind   kind     = eEntityKind::ENEMY;
-        float         x        = 0.0F;
-        float         y        = 0.0F;
-        std::int16_t  health   = 0;
-        std::int8_t   layer    = 0;
-        float         scale    = 1.0F;
-        float         offsetX  = 0.0F;
-        float         offsetY  = 0.0F;
-        float         rotation = 0.0F;
-        std::string   texture;
-        bool          atlas = false;
-        SDimentions   baseDimension{};
-        std::size_t   frames        = 1U;
-        float         frameDuration = 0.0F;
-        std::size_t   variant       = 0U;
+    struct SEntityComponents {
+        std::uint32_t                          id           = 0;
+        std::uint64_t                          creationTick = 0;
+        std::vector<std::vector<std::uint8_t>> components;
+    };
+
+    struct SUpdateEntity {
+        std::uint32_t                          id     = 0;
+        bool                                   remove = false;
+        std::vector<std::vector<std::uint8_t>> components;
     };
 
 } // namespace Game

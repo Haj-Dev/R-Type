@@ -79,7 +79,7 @@ void CDrawThread::run() {
                                              80 + ((x * 37) % 600), 2,
                                              SColor{.r = 255, .g = 255, .b = 255, .a = 255});
                 mRenderSystem.loadTextures(mSceneData.renderRegistry);
-                mRenderSystem.draw(mSceneData.renderRegistry);
+                mRenderSystem.draw(mSceneData.renderRegistry, mSceneData.tick);
             }
             if (!spectating) {
                 mRenderSystem.drawText("Arrow keys: move   Space: fire", 20, 20, 20,

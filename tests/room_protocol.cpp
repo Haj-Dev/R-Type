@@ -72,11 +72,12 @@ TEST(LobbyProtocol, RoomListRoundTrips) {
 
 TEST(LobbyProtocol, RoomInfoRoundTrips) {
     const Room::SInfo room{
-        .id       = 7,
-        .name     = "Squad",
-        .state    = Room::eState::WAITING,
-        .masterId = 1,
-        .players  = {{.id = 1, .name = "Alice"}, {.id = 3, .name = "Bob"}},
+        .id         = 7,
+        .name       = "Squad",
+        .state      = Room::eState::WAITING,
+        .masterId   = 1,
+        .players    = {{.id = 1, .name = "Alice"}, {.id = 3, .name = "Bob"}},
+        .spectators = {},
     };
     const auto         frame = Net::makeRoomInfo(Net::eLobbyCommand::ROOM_JOINED, room);
 

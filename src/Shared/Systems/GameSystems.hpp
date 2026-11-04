@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Shared/Components/ComponentRegistry.hpp"
 #include "Shared/ECS/ECS.hpp"
 #include "Shared/Components/Collider.hpp"
 #include "Shared/Components/EntityType.hpp"
@@ -8,8 +9,6 @@
 #include "Shared/Components/Position.hpp"
 #include "Shared/Components/Projectile.hpp"
 #include "Shared/Components/Velocity.hpp"
-#include "Shared/Components/DrawableShape.hpp"
-#include "Shared/Components/DrawableSprite.hpp"
 #include "Shared/Components/DrawableSpriteAtlas.hpp"
 #include "Shared/GameWorld.hpp"
 #include "Shared/PlayerActions.hpp"
@@ -29,14 +28,6 @@
 #include <vector>
 
 namespace Game {
-
-    class CAnimationSystem {
-      public:
-        void update(Ecs::CRegistry& registry, float delta) const {
-            registry.each<SCDrawableSpriteAtlas>(
-                [delta](Ecs::SEntity, SCDrawableSpriteAtlas& sprite) { sprite.advance(delta); });
-        }
-    };
 
     class CPlayerSystem {
       public:
@@ -64,16 +55,19 @@ namespace Game {
                 spawnProjectile(registry, projectile.position, projectile.playerId);
         }
 
-        void synchronizeConnectedPlayers(Ecs::CRegistry& registry, const SPLayerActions& actions) const {
+        void synchronizeConnectedPlayers(Ecs::CRegistry& registry, const SPLayerActions& actions,
+                                         bool removeDisconnected = true) const {
             std::vector<Ecs::SEntity>                    disconnected;
             std::array<bool, SPLayerActions::MaxPlayers> exists{};
 
             registry.each<SCPlayer>([&](Ecs::SEntity entity, SCPlayer& player) {
-                if (player.id >= SPLayerActions::MaxPlayers || !actions.connected.at(player.id)) {
+                if (removeDisconnected &&
+                    (player.id >= SPLayerActions::MaxPlayers || !actions.connected.at(player.id))) {
                     disconnected.push_back(entity);
                     return;
                 }
-                exists.at(player.id) = true;
+                if (player.id < SPLayerActions::MaxPlayers)
+                    exists.at(player.id) = true;
             });
 
             for (const auto entity : disconnected)
@@ -102,7 +96,7 @@ namespace Game {
             registry.emplace<SCDrawableSpriteAtlas>(
                 entity,
                 SCDrawableSpriteAtlas{"assets/player_atlas.png",
-                                      SDimentions{.width = 32U, .height = 32U}, 2, 0.5F, id % 4U});
+                                      SDimentions{.width = 32U, .height = 32U}, 4, 30U, id % 4U});
             registry.emplace<SCPlayer>(entity, SCPlayer{id});
         }
 
@@ -117,7 +111,7 @@ namespace Game {
             registry.emplace<SCDrawableSpriteAtlas>(
                 entity,
                 SCDrawableSpriteAtlas{"assets/r-typesheet3.gif",
-                                      SDimentions{.width = 17U, .height = 17U}, 12, 0.25F, 0});
+                                      SDimentions{.width = 17U, .height = 17U}, 12, 15U, 0});
         }
     };
 
@@ -251,11 +245,11 @@ namespace Game {
                     std::uniform_int_distribution<> dis(0,
                                                         Game::WorldHeight - (enemySpawn.getSize() * 2));
                     registry.emplace<SCPosition>(
-                        entity, SCPosition{WorldWidth + 20.0F, (dis(gen) + enemySpawn.getSize())});
+                        entity, SCPosition{WorldWidth + 100.0F, (dis(gen) + enemySpawn.getSize())});
                 } else {
                     registry.emplace<SCPosition>(
                         entity,
-                        SCPosition{WorldWidth + 20.0F,
+                        SCPosition{WorldWidth + 100.0F,
                                    enemySpawn.getStartY() +
                                        (enemySpawn.getGapY() * enemySpawn.getSpawned())});
                 }
@@ -266,7 +260,7 @@ namespace Game {
                 registry.emplace<SCDrawableSpriteAtlas>(
                     entity,
                     SCDrawableSpriteAtlas{"assets/r-typesheet5.gif",
-                                          SDimentions{.width = 32U, .height = 36U}, 5, 0.5F, 0});
+                                          SDimentions{.width = 32U, .height = 36U}, 5, 30U, 0});
                 enemySpawn.enemySpawned();
             }
             std::erase_if(enemySpawns, [](CEnemySpawn& enemySpawn) { return enemySpawn.toDelete(); });
@@ -291,6 +285,8 @@ namespace Game {
                         [&](Ecs::SEntity enemy, SCPosition& enemyPosition, SCCollider& enemyCollider,
                             SCEntityType& enemyType, SCHealth& health) {
                             if (enemyType.value != eEntityKind::ENEMY)
+                                return;
+                            if (enemyPosition.x > WorldWidth)
                                 return;
                             const float dx     = projectilePosition.x - enemyPosition.x;
                             const float dy     = projectilePosition.y - enemyPosition.y;
@@ -351,50 +347,19 @@ namespace Game {
 
     class CSnapshotSystem {
       public:
-        [[nodiscard]] std::vector<SSnapshotEntity> capture(Ecs::CRegistry& registry) const {
-            std::vector<SSnapshotEntity> result;
+        [[nodiscard]] std::vector<SEntityComponents> capture(Ecs::CRegistry& registry) const {
+            std::vector<SEntityComponents> result;
             result.reserve(registry.size());
-            registry.each<SCPosition, SCEntityType>(
-                [&](Ecs::SEntity entity, SCPosition& position, SCEntityType& type) {
-                    const auto*     health = registry.get<SCHealth>(entity);
-                    SSnapshotEntity snapshot{
-                        .id       = entity.index,
-                        .kind     = type.value,
-                        .x        = position.x,
-                        .y        = position.y,
-                        .health   = static_cast<std::int16_t>(health == nullptr ? 0 : health->value),
-                        .layer    = 0,
-                        .scale    = 1.0F,
-                        .offsetX  = 0.0F,
-                        .offsetY  = 0.0F,
-                        .rotation = 0.0F,
-                        .texture  = {},
-                    };
-                    if (const auto* shape = registry.get<SCDrawableShape>(entity))
-                        snapshot.layer = shape->layer;
-                    if (const auto* sprite = registry.get<SCDrawableSprite>(entity)) {
-                        snapshot.layer    = sprite->layer;
-                        snapshot.scale    = sprite->scale;
-                        snapshot.offsetX  = sprite->offset.x;
-                        snapshot.offsetY  = sprite->offset.y;
-                        snapshot.rotation = sprite->rotation;
-                        snapshot.texture  = sprite->texture;
-                    }
-                    if (const auto* atlas = registry.get<SCDrawableSpriteAtlas>(entity)) {
-                        snapshot.atlas         = true;
-                        snapshot.baseDimension = atlas->baseDimension;
-                        snapshot.frames        = atlas->frames;
-                        snapshot.frameDuration = atlas->frameDuration;
-                        snapshot.variant       = atlas->variant;
-                        snapshot.layer         = atlas->layer;
-                        snapshot.scale         = atlas->scale;
-                        snapshot.offsetX       = atlas->offset.x;
-                        snapshot.offsetY       = atlas->offset.y;
-                        snapshot.rotation      = atlas->rotation;
-                        snapshot.texture       = atlas->texture;
-                    }
-                    result.push_back(std::move(snapshot));
-                });
+            CComponentRegistry components;
+            registry.eachEntity([&](Ecs::SEntity entity) {
+                SEntityComponents snapshot{
+                    .id           = entity.index,
+                    .creationTick = entity.creationTick,
+                    .components   = {},
+                };
+                snapshot.components = components.serialize(registry, entity);
+                result.push_back(std::move(snapshot));
+            });
             return result;
         }
     };
