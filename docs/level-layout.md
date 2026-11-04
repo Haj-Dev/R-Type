@@ -1,48 +1,47 @@
 # Level layout
 
-This document aims to give you a basic understanding of the level layout in the game.  
+The server loads a campaign of five TOML files in order:
 
-## File format
+1. `assets/maps/init.toml` — first, introductory level
+2. `assets/maps/level_2.toml`
+3. `assets/maps/level_3.toml`
+4. `assets/maps/level_4.toml`
+5. `assets/maps/level_5.toml` — final level
 
-The level layout is stored in a file with the extension `.toml`. The file contains a series of lines, each representing a row of the level. Each line contains a series of characters, each representing a tile in the level.  
+Each file contains one `[[enemies]]` table per spawn wave. The server starts
+the next level after every wave has spawned and no enemies remain in the world.
+Enemies that leave the screen count as cleared. A three-second intermission
+separates levels. Clearing the fifth level completes the campaign.
 
-## Content
+## Enemy waves
 
-### Description
+| Key | Type | Meaning |
+| --- | --- | --- |
+| `type` | string | `linear` or `column` spawns enemies at `startY`, spaced by `gapY`; `random` chooses a random vertical position. |
+| `start` | number | Seconds from the beginning of the level before this wave starts. |
+| `startY` | number | First enemy's vertical position for `linear` and `column` waves. |
+| `gapY` | number | Vertical spacing between enemies in `linear` and `column` waves. |
+| `size` | integer | Enemy collision radius in pixels. |
+| `health` | integer | Hits the enemy can take before it is destroyed. |
+| `count` | integer | Number of enemies in the wave. |
+| `spawnSpeed` | number | Seconds between enemies in this wave. |
+| `speed` | number | Horizontal movement speed in pixels per second. |
 
-This contains the description of the level. The parameters are:  
+Example:
 
-- background: String (Path to the background texture for the level)
-- timer: UInt (Time in seconds describing the level time)
-- music: String (Path to the music to play during the level)
-- player: String (Path to the player texture)
+```toml
+[[enemies]]
+type = "linear"
+start = 0
+startY = 135
+gapY = 115
+size = 15
+health = 1
+count = 5
+spawnSpeed = 1.25
+speed = 72
+```
 
-### enemies
-
-This contains an enemy spaw point.
-
-- type: String (The spawn type for this wave)
-- direction: String (If required - Direction of the wave)
-- start: UInt (Starting point of the wave)
-- startY: UInt (Starting Y position of wave)
-- gapY: UInt (Gap between enemies. Used in column based spawn)
-- size: UInt (Size of the enemy)
-- damage: UInt (Damage delt to the player)
-- score: UInt (Score given to the player upon kill)
-- health: UInt (Health of an enemy)
-- count: UInt (Number of enemies to spawn)
-- spawnSpeed: Unsigned float (Time between enemy spawn)
-- speed: UInt (Speed of each enemies)
-- texture: String (Path to enemy texture)
-- deathSound: String (Path to sound played upon death)
-
-### tyles
-
-This contains the different walls troughout the level.  
-
-- startX: UInt (Starting X position)
-- startY: UInt (Starting y position)
-- width: UInt (Width in pixel)
-- height: UInt (Height in pixel)
-- texture: String (Path to texture)
-- colision: Bool (Say if the tyle has collision or not)
+The campaign becomes harder through larger waves, shorter spawn intervals,
+faster enemies, and higher health. Keep generated `startY` positions within the
+720-pixel game world.
