@@ -475,7 +475,7 @@ void CNetworkThread::handleLobbyMessage(Net::eLobbyCommand command, const std::u
             mHasReceivedTick  = false;
             mVoiceSequence    = 0;
             mVoiceHasSequence.fill(false);
-            mInGame           = true;
+            mInGame = true;
             mStopCondition.notify_all();
             break;
         }
@@ -550,18 +550,17 @@ void CNetworkThread::processVoice() {
         }
         if (deafened)
             continue;
-        std::uint8_t       playerId = 0;
-        std::uint16_t      sequence = 0;
+        std::uint8_t              playerId = 0;
+        std::uint16_t             sequence = 0;
         std::vector<std::uint8_t> encoded;
         if (Net::readVoice(buffer.data(), size, playerId, sequence, encoded) &&
             playerId != mGameplayId) {
-            const bool newerSequence =
-                !mVoiceHasSequence.at(playerId) ||
+            const bool newerSequence = !mVoiceHasSequence.at(playerId) ||
                 (sequence != mVoiceLastSequence.at(playerId) &&
                  static_cast<std::uint16_t>(sequence - mVoiceLastSequence.at(playerId)) < 0x8000U);
             if (!newerSequence)
                 continue;
-            mVoiceHasSequence.at(playerId) = true;
+            mVoiceHasSequence.at(playerId)  = true;
             mVoiceLastSequence.at(playerId) = sequence;
             std::vector<float> samples;
             if (mVoiceCodec.decode(encoded, samples))

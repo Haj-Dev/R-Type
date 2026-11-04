@@ -41,7 +41,7 @@ namespace Net {
     inline constexpr std::size_t CommandHeaderSize    = 9;
     inline constexpr std::size_t HandshakeSize        = 9;
     inline constexpr std::size_t VoiceSamplesPerFrame = 960;
-    inline constexpr std::size_t   MaxVoicePayloadSize  = 1275;
+    inline constexpr std::size_t MaxVoicePayloadSize  = 1275;
     inline constexpr std::size_t MaxUdpPayloadSize    = 65507;
 
     inline void appendBytes(std::vector<std::uint8_t>& output, const void* data, std::size_t size) {
@@ -134,18 +134,17 @@ namespace Net {
             HeaderSize + 1 + sizeof(std::uint16_t) + sizeof(std::uint16_t);
         if (size < voiceHeaderSize + sizeof(Terminator))
             return false;
-        const auto payloadSize = static_cast<std::uint16_t>(
-            static_cast<std::uint32_t>(data[7]) |
-            (static_cast<std::uint32_t>(data[8]) << 8U));
+        const auto payloadSize = static_cast<std::uint16_t>(static_cast<std::uint32_t>(data[7]) |
+                                                            (static_cast<std::uint32_t>(data[8]) << 8U));
         return payloadSize > 0 && payloadSize <= MaxVoicePayloadSize &&
-            size == voiceHeaderSize + payloadSize + sizeof(Terminator) &&
-            data[0] == Magic.at(0) && data[1] == Magic.at(1) && data[2] == Magic.at(2) &&
+            size == voiceHeaderSize + payloadSize + sizeof(Terminator) && data[0] == Magic.at(0) &&
+            data[1] == Magic.at(1) && data[2] == Magic.at(2) &&
             data[3] == static_cast<std::uint8_t>(ePacketType::VOICE) && data[size - 2] == 0x0D &&
             data[size - 1] == 0x0A;
     }
 
     inline std::vector<std::uint8_t> makeVoice(std::uint8_t playerId, std::uint16_t sequence,
-                                                std::span<const std::uint8_t> payload) {
+                                               std::span<const std::uint8_t> payload) {
         if (payload.empty() || payload.size() > MaxVoicePayloadSize)
             return {};
         auto packet = beginPacket(ePacketType::VOICE);
@@ -165,13 +164,11 @@ namespace Net {
                           std::uint16_t& sequence, std::vector<std::uint8_t>& payload) {
         if (!validVoicePacket(data, size))
             return false;
-        playerId = data[4];
-        sequence = static_cast<std::uint16_t>(
-            static_cast<std::uint32_t>(data[5]) |
-            (static_cast<std::uint32_t>(data[6]) << 8U));
-        const auto payloadSize = static_cast<std::uint16_t>(
-            static_cast<std::uint32_t>(data[7]) |
-            (static_cast<std::uint32_t>(data[8]) << 8U));
+        playerId               = data[4];
+        sequence               = static_cast<std::uint16_t>(static_cast<std::uint32_t>(data[5]) |
+                                                            (static_cast<std::uint32_t>(data[6]) << 8U));
+        const auto payloadSize = static_cast<std::uint16_t>(static_cast<std::uint32_t>(data[7]) |
+                                                            (static_cast<std::uint32_t>(data[8]) << 8U));
         constexpr std::size_t payloadOffset =
             HeaderSize + 1 + sizeof(std::uint16_t) + sizeof(std::uint16_t);
         payload.assign(data + payloadOffset, data + payloadOffset + payloadSize);

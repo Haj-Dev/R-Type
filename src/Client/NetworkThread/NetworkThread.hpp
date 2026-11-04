@@ -92,8 +92,8 @@ class CNetworkThread {
     bool                                 mSpectating       = false;
     Chat::CChatSystem                    mChatSystem;
     std::unique_ptr<Audio::AAudioSystem> mAudioSystem;
-    CVoiceCodec                  mVoiceCodec;
-    std::uint16_t                mVoiceSequence = 0;
-    std::array<std::uint16_t, 256> mVoiceLastSequence{};
-    std::array<bool, 256>          mVoiceHasSequence{};
+    CVoiceCodec                          mVoiceCodec;
+    std::uint16_t                        mVoiceSequence = 0;
+    std::array<std::uint16_t, 256>       mVoiceLastSequence{};
+    std::array<bool, 256>                mVoiceHasSequence{};
 };
