@@ -55,6 +55,28 @@ TEST(NetworkProtocol, InputRoundTripsEveryActionFlag) {
     EXPECT_EQ(actual.fire, expected.fire);
 }
 
+TEST(NetworkProtocol, VoiceRoundTripsAudioFrame) {
+    const std::vector<std::uint8_t> expected{0x01, 0x02, 0x03, 0x04};
+    const auto packet = Net::makeVoice(2, 17, expected);
+    std::uint8_t             playerId = 0;
+    std::uint16_t sequence = 0;
+    std::vector<std::uint8_t> actual;
+    ASSERT_TRUE(Net::readVoice(packet.data(), packet.size(), playerId, sequence, actual));
+    EXPECT_EQ(playerId, 2);
+    EXPECT_EQ(sequence, 17);
+    EXPECT_EQ(actual, expected);
+}
+
+TEST(NetworkProtocol, VoiceRejectsTruncatedFrame) {
+    const std::vector<std::uint8_t> payload{0x01, 0x02};
+    auto packet = Net::makeVoice(1, 0, payload);
+    packet.pop_back();
+    std::uint8_t       playerId = 0;
+    std::uint16_t sequence = 0;
+    std::vector<std::uint8_t> decoded;
+    EXPECT_FALSE(Net::readVoice(packet.data(), packet.size(), playerId, sequence, decoded));
+}
+
 TEST(NetworkProtocol, SnapshotRoundTripsMultipleAndEmptyEntities) {
     SSceneData                scene;
     std::vector<std::uint8_t> position;

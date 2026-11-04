@@ -100,8 +100,8 @@ namespace Lobby {
         SELECT_SERVER,
         REFRESH_SERVERS,
         SEND_CHAT,
-        TOGGLE_VOICE,
-        TOGGLE_MUTE,
+        TOGGLE_MIC,
+        TOGGLE_DEAFEN,
         VOLUME_UP,
         VOLUME_DOWN,
         SPECTATE_ROOM,
@@ -137,9 +137,9 @@ namespace Lobby {
         std::optional<Room::SInfo>  currentRoom;
         Ecs::CRegistry              chat; // chat messages and typing state, see Chat::CChatSystem
         std::string                 message;
-        bool                        voiceEnabled = true;
-        bool                        voiceMuted   = false;
-        float                       voiceVolume  = 1.0F;
+        bool                        microphoneEnabled = true;
+        bool                        deafened          = false;
+        float                       voiceVolume       = 1.0F;
     };
 
     // True when this client is in a room as a spectator (watching without a character).

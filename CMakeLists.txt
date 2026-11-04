@@ -92,6 +92,13 @@ CPMAddPackage(
   DOWNLOAD_ONLY YES
 )
 
+CPMAddPackage(
+  NAME opus
+  GITHUB_REPOSITORY xiph/opus
+  GIT_TAG v1.5.2
+  GIT_SHALLOW TRUE
+)
+
 if(asio_ADDED)
   add_library(asio INTERFACE)
 
@@ -202,6 +209,15 @@ file(GLOB_RECURSE RTYPE_CORE_SOURCES CONFIGURE_DEPENDS
 )
 list(FILTER RTYPE_CORE_SOURCES EXCLUDE REGEX "[/\\\\]main\\.cpp$")
 list(FILTER RTYPE_CORE_SOURCES EXCLUDE REGEX "[/\\\\]old[/\\\\]")
+list(FILTER RTYPE_CORE_SOURCES EXCLUDE REGEX
+     "[/\\\\]Shared[/\\\\]Systems[/\\\\]AudioSystem\\.cpp$")
+list(FILTER RTYPE_CORE_SOURCES EXCLUDE REGEX
+     "[/\\\\]Shared[/\\\\]Systems[/\\\\]MiniaudioBackend\\.cpp$")
+list(FILTER RTYPE_CORE_SOURCES EXCLUDE REGEX
+     "[/\\\\]Shared[/\\\\]Systems[/\\\\]MiniaudioImplementation\\.cpp$")
+list(FILTER RTYPE_CORE_SOURCES EXCLUDE REGEX
+     "[/\\\\]Client[/\\\\]NetworkThread[/\\\\]VoiceCodec\\.cpp$")
+
 
 if(RTYPE_CORE_SOURCES)
   add_library(rtype_core STATIC ${RTYPE_CORE_SOURCES})
@@ -215,8 +231,17 @@ else()
 endif()
 
 target_include_directories(rtype_core ${_core_scope} "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(rtype_core ${_core_scope} raylib asio miniaudio
-                      tomlplusplus)
+target_include_directories(rtype_core PRIVATE "${opus_SOURCE_DIR}/include")
+target_link_libraries(rtype_core ${_core_scope} raylib asio tomlplusplus)
+
+add_library(rtype_audio STATIC
+  src/Shared/Systems/AudioSystem.cpp
+  src/Shared/Systems/MiniaudioBackend.cpp
+  src/Shared/Systems/MiniaudioImplementation.cpp
+  src/Client/NetworkThread/VoiceCodec.cpp
+)
+target_include_directories(rtype_audio PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(rtype_audio PRIVATE rtype_warnings miniaudio opus)
 
 # ---------------------------------------------------------------------------
 # Server & Client
@@ -226,7 +251,7 @@ target_link_libraries(r-type_server PRIVATE rtype_core)
 rtype_configure_executable(r-type_server)
 
 add_executable(r-type_client src/Client/main.cpp)
-target_link_libraries(r-type_client PRIVATE rtype_core)
+target_link_libraries(r-type_client PRIVATE rtype_core rtype_audio)
 rtype_configure_executable(r-type_client)
 
 # ---------------------------------------------------------------------------

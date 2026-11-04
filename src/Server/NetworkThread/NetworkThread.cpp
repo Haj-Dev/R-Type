@@ -154,30 +154,6 @@ void CServerNetworkThread::run() {
                 const auto gameplayId = mConnectionGameplayIds.at(connectionId);
                 if (!gameplayId)
                     continue;
-                for (;;) {
-                    asio::error_code error;
-                    const auto size = mVoiceSocket.receive_from(asio::buffer(buffer), sender, 0, error);
-                    if (error == asio::error::would_block)
-                        break;
-                    if (error || !Net::validVoicePacket(buffer.data(), size))
-                        continue;
-                    const auto client = std::ranges::find(mVoiceClients, sender);
-                    if (client == mVoiceClients.end())
-                        continue;
-                    const auto connectionId =
-                        static_cast<std::uint8_t>(std::distance(mVoiceClients.begin(), client));
-                    const auto roomId = mRoomManager.roomIdOfPlayer(connectionId);
-                    if (!roomId || !mConnectionGameplayIds.at(connectionId))
-                        continue;
-                    for (const auto target : mRoomManager.playersInRoom(*roomId)) {
-                        if (target == connectionId || target >= mVoiceClients.size() ||
-                            mVoiceClients.at(target).address().is_unspecified())
-                            continue;
-                        mVoiceSocket.send_to(asio::buffer(buffer.data(), size),
-                                             mVoiceClients.at(target));
-                    }
-                }
-
                 const auto activeRoom = mRoomManager.activeRoom();
                 if (!activeRoom || mRoomManager.roomIdOfPlayer(connectionId) != activeRoom)
                     continue;
@@ -190,6 +166,31 @@ void CServerNetworkThread::run() {
                 }
             } else if (type == Net::ePacketType::INPUT) {
                 std::cerr << "[Server] Ignored input from unknown client " << sender << '\n';
+            }
+        }
+
+        for (;;) {
+            asio::error_code error;
+            const auto       size = mVoiceSocket.receive_from(asio::buffer(buffer), sender, 0, error);
+            if (error == asio::error::would_block || error == asio::error::try_again)
+                break;
+            if (error || !Net::validVoicePacket(buffer.data(), size))
+                continue;
+            const auto client = std::ranges::find(mVoiceClients, sender);
+            if (client == mVoiceClients.end())
+                continue;
+            const auto connectionId =
+                static_cast<std::uint8_t>(std::distance(mVoiceClients.begin(), client));
+            const auto roomId = mRoomManager.roomIdOfPlayer(connectionId);
+            if (!roomId || !mConnectionGameplayIds.at(connectionId))
+                continue;
+            buffer.at(4) = *mConnectionGameplayIds.at(connectionId);
+            for (const auto target : mRoomManager.occupantsInRoom(*roomId)) {
+                if (target == connectionId || target >= mVoiceClients.size() ||
+                    mVoiceClients.at(target).address().is_unspecified())
+                    continue;
+                mVoiceSocket.send_to(asio::buffer(buffer.data(), size), mVoiceClients.at(target), 0,
+                                     error);
             }
         }
 

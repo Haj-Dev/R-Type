@@ -16,14 +16,15 @@ it is not part of the gameplay data path.
 - UDP gameplay input and authoritative snapshots
 - Rooms for up to four players
 - In-game room chat
+- Room voice chat with microphone mute, deafen, and volume controls
 - Shared ECS used by the server simulation and client render world
 - Unit tests for ECS, networking, controls, rooms, chat, and simulation
 
 ## Requirements
 
 The project is built with CMake and uses CPM.cmake to download Raylib, Asio,
-toml++, and GoogleTest during configuration. You do not need to install those
-libraries separately.
+miniaudio, toml++, and GoogleTest during configuration. You do not need to
+install those libraries separately.
 
 Required:
 
@@ -281,12 +282,14 @@ assets/       Maps and game assets
 - [Level layout](docs/level-layout.md) - level and map conventions
 - [Contributor guide](CONTRIBUTOR.md) - contribution workflow and conventions
 - [Comparative study](docs/library-comparative-study.md) - comparative study
+- [Voice chat](docs/voice-chat.md) - audio capture, transport, controls, and limitations
 
 ## Technical stack
 
 - C++23
 - Raylib 6.0 for rendering
 - standalone Asio 1.38 for networking
+- miniaudio 0.11.26 for microphone capture and playback
 - toml++ 3.4 for TOML data
 - GoogleTest 1.17 for tests
 - CMake, CPM.cmake, and Ninja

@@ -76,6 +76,7 @@ shared real-time game.
 | Concern | Selected technology | Version or approach | Why it was selected |
 | --- | --- | --- | --- |
 | Client graphics and input | Raylib | 6.0 | A small 2D API with windowing, textures, drawing, and input in one package |
+| Client audio | miniaudio | 0.11.26 | A single-file, cross-platform audio device API with capture and playback and minimal integration cost |
 | Networking | Standalone Asio | 1.38.2 | Portable TCP and UDP primitives without the full Boost dependency |
 | Configuration | toml++ | 3.4.0 | Typed, readable TOML files for hand-authored levels |
 | Testing | GoogleTest | 1.17.0 | Mature assertions, fixtures, and direct CTest discovery |
@@ -118,7 +119,48 @@ SDL3 would have been the better initial choice for a broader application with
 advanced controller, audio, display, or backend requirements. Those were not
 part of the initial scope, so its additional setup was not justified.
 
-## 2. Networking and asynchronous I/O
+## 2. Audio capture and playback
+
+Voice chat added a focused audio requirement after the initial graphics and
+networking choices: the client needs microphone capture, speaker playback, a
+small cross-platform API, and no audio dependency in the server or shared game
+simulation. The voice transport itself remains project-owned and uses a
+separate UDP endpoint; the audio library only handles local devices and sample
+buffers.
+
+### Requirements
+
+The audio layer needed duplex device support, 48 kHz mono floating-point
+samples, callback-based device I/O, Linux and Windows portability, and a
+small API that could be wrapped behind `Audio::AAudioSystem`. Full music
+playback, 3D spatialization, mixing graphs, and an audio engine were outside
+the current scope.
+
+| Library | Strengths | Costs and risks | Fit for R-Type |
+| --- | --- | --- | --- |
+| **miniaudio** | Single-file C library, capture and playback support, cross-platform device APIs, no required external runtime, and straightforward C++ wrapping | The project must provide buffering, mixing policy, device error handling, and any codec or spatial-audio features it needs | **Selected.** It provides exactly the local microphone and speaker primitives required by voice chat with very little build or architectural overhead |
+| **SDL3 Audio** | Mature cross-platform device abstraction, audio streams, resampling, and broad platform support; would also provide input, window, and controller services | Pulls in a larger multimedia framework than this project needs; duplicates Raylib's window/input responsibilities; adds integration and build surface for a small voice feature | Strong technically, but **not selected because SDL3 is too heavy for the current scope** |
+| **OpenAL Soft** | Established cross-platform playback API, positional audio, distance attenuation, and a familiar 3D-audio model | Primarily playback-oriented; capture and device management add another API path; spatial audio is unnecessary for room voice; runtime dependency and configuration are larger than miniaudio's | Viable for a game centered on positional effects, but over-specified for the current voice-only requirement |
+
+### Selected option: miniaudio
+
+miniaudio was selected because it keeps the audio boundary narrow: the client
+creates `AAudioSystem`, starts one duplex device, captures 20 ms frames, and
+submits received frames for playback. The backend is isolated in
+`MiniaudioBackend.cpp`, so networking does not depend on miniaudio types and a
+different device backend can be introduced later.
+
+The current implementation intentionally leaves encoding, jitter buffering,
+voice activity detection, echo cancellation, and spatial mixing to future
+work. Raw PCM is sufficient for the initial LAN-oriented voice path and keeps
+the protocol easy to inspect and test.
+
+SDL3 would become more attractive if the project replaced Raylib with SDL3 or
+grew into a broader multimedia client requiring SDL's window, controller,
+display, and audio abstractions together. Introducing it only for voice chat
+would add more weight than capability needed by R-Type.
+
+## 3. Networking and asynchronous I/O
 
 Asio is used for TCP handshakes and lobby frames, UDP gameplay packets, socket
 endpoints, and networking error codes. The current server loop is deliberately
@@ -152,7 +194,7 @@ GameNetworkingSockets would have been reasonable for a game built around
 reliable UDP, but the initial design intentionally separated reliable TCP
 control traffic from UDP gameplay traffic.
 
-## 3. Configuration parsing
+## 4. Configuration parsing
 
 toml++ parses level data such as enemy spawn definitions. The code uses typed
 TOML nodes and `value_or`, which keeps the configuration close to the domain
@@ -184,7 +226,7 @@ The selection also left room for a later schema-validation layer. The parser
 handles syntax and types; the game code remains responsible for validating
 domain rules such as required enemy fields and valid spawn modes.
 
-## 4. Test libraries and strategy
+## 5. Test libraries and strategy
 
 The project uses GoogleTest for protocol, ECS, controls, room, chat,
 simulation, and sprite-atlas tests. GoogleTest defines the assertions and test
@@ -241,7 +283,7 @@ would have added abstractions before the ownership boundaries were stable.
 Mocks can still be justified later for external services such as master-server
 discovery or failure-injection tests around network disconnects.
 
-## 5. ECS strategy
+## 6. ECS strategy
 
 The ECS is project-owned and header-only. It uses generational entity handles,
 sparse component pools, packed storage with swap removal, and lazy views. Both
@@ -276,7 +318,7 @@ started with a larger or less certain ECS feature set. Flecs would have been
 appropriate for a data-driven game requiring relationships, reflection, or
 editor integration. Neither advantage was necessary at project start.
 
-## 6. Dependency acquisition and build integration
+## 7. Dependency acquisition and build integration
 
 CPM.cmake downloads pinned source revisions during CMake configuration and
 places them in a cache. This keeps the repository's setup instructions simple

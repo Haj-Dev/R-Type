@@ -52,7 +52,16 @@ void CDrawThread::run() {
             bool spectating = false;
             {
                 std::scoped_lock lock(mtex);
-                spectating = Lobby::isSpectating(mLobbyState);
+                spectating        = Lobby::isSpectating(mLobbyState);
+                const bool typing = mChatUI.typing(mLobbyState);
+                if (!typing && IsKeyPressed(KEY_M)) {
+                    mLobbyCommands.push_back(Lobby::SCommand{
+                        .type = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT) ?
+                            Lobby::eClientCommand::TOGGLE_DEAFEN :
+                            Lobby::eClientCommand::TOGGLE_MIC,
+                        .text = {},
+                    });
+                }
                 // A spectator has no character, so it produces no input at all.
                 if (!spectating) {
                     std::size_t playerId = 0;
@@ -62,7 +71,6 @@ void CDrawThread::run() {
                             break;
                         }
                     }
-                    const bool typing                  = mChatUI.typing(mLobbyState);
                     mPlayerActions.states.at(playerId) = SPlayerActionState{
                         .up    = !typing && IsKeyDown(KEY_UP),
                         .down  = !typing && IsKeyDown(KEY_DOWN),
@@ -82,8 +90,8 @@ void CDrawThread::run() {
                 mRenderSystem.draw(mSceneData.renderRegistry, mSceneData.tick);
             }
             if (!spectating) {
-                mRenderSystem.drawText("Arrow keys: move   Space: fire", 20, 20, 20,
-                                       SColor{.r = 255, .g = 255, .b = 255, .a = 255});
+                mRenderSystem.drawText("Arrow keys: move   Space: fire   M: mute mic   Shift+M: deafen",
+                                       20, 20, 20, SColor{.r = 255, .g = 255, .b = 255, .a = 255});
             }
             {
                 std::scoped_lock lock(mtex);

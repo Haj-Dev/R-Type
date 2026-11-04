@@ -258,11 +258,12 @@ void CLobbyUI::drawRoom(IRenderSystem& renderer, const Lobby::SLobbyState& state
         commands.push_back(Lobby::SCommand{.type = Lobby::eClientCommand::LEAVE_ROOM, .text = {}});
 
     const int voiceY = y + 165;
-    renderer.drawText("Voice", 20, voiceY, 20, White);
-    if (drawButton(renderer, 20, voiceY + 28, 145, 38, state.voiceEnabled ? "Voice: on" : "Voice: off"))
-        commands.push_back(Lobby::SCommand{.type = Lobby::eClientCommand::TOGGLE_VOICE, .text = {}});
-    if (drawButton(renderer, 175, voiceY + 28, 145, 38, state.voiceMuted ? "Muted" : "Mute"))
-        commands.push_back(Lobby::SCommand{.type = Lobby::eClientCommand::TOGGLE_MUTE, .text = {}});
+    renderer.drawText("Voice (M: mute mic, Shift+M: deafen)", 20, voiceY, 20, White);
+    if (drawButton(renderer, 20, voiceY + 28, 145, 38,
+                   state.microphoneEnabled ? "Mic: on" : "Mic: muted"))
+        commands.push_back(Lobby::SCommand{.type = Lobby::eClientCommand::TOGGLE_MIC, .text = {}});
+    if (drawButton(renderer, 175, voiceY + 28, 145, 38, state.deafened ? "Deafened" : "Deafen"))
+        commands.push_back(Lobby::SCommand{.type = Lobby::eClientCommand::TOGGLE_DEAFEN, .text = {}});
     if (drawButton(renderer, 330, voiceY + 28, 38, 38, "-"))
         commands.push_back(Lobby::SCommand{.type = Lobby::eClientCommand::VOLUME_DOWN, .text = {}});
     if (drawButton(renderer, 372, voiceY + 28, 38, 38, "+"))
