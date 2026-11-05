@@ -72,11 +72,12 @@ TEST(LobbyProtocol, RoomListRoundTrips) {
 
 TEST(LobbyProtocol, RoomInfoRoundTrips) {
     const Room::SInfo room{
-        .id       = 7,
-        .name     = "Squad",
-        .state    = Room::eState::WAITING,
-        .masterId = 1,
-        .players  = {{.id = 1, .name = "Alice"}, {.id = 3, .name = "Bob"}},
+        .id         = 7,
+        .name       = "Squad",
+        .state      = Room::eState::WAITING,
+        .masterId   = 1,
+        .players    = {{.id = 1, .name = "Alice"}, {.id = 3, .name = "Bob"}},
+        .spectators = {},
     };
     const auto         frame = Net::makeRoomInfo(Net::eLobbyCommand::ROOM_JOINED, room);
 
@@ -208,6 +209,22 @@ TEST(RoomManager, CreateJoinAndLaunch) {
     EXPECT_EQ(info->state, Room::eState::IN_GAME);
 }
 
+TEST(LobbyProtocol, GameStartedRoundTripsRoomAndGameplayId) {
+    const auto         frame = Net::makeGameStarted(7, 3);
+
+    Net::eLobbyCommand command;
+    std::uint16_t      payloadLength = 0;
+    ASSERT_TRUE(Net::readLobbyHeader(frame.data(), frame.size(), command, payloadLength));
+    EXPECT_EQ(command, Net::eLobbyCommand::GAME_STARTED);
+
+    std::uint16_t roomId     = 0;
+    std::uint8_t  gameplayId = 0;
+    ASSERT_TRUE(
+        Net::readGameStarted(frame.data() + Net::LobbyHeaderSize, payloadLength, roomId, gameplayId));
+    EXPECT_EQ(roomId, 7);
+    EXPECT_EQ(gameplayId, 3);
+}
+
 TEST(RoomManager, RejectsInvalidOperations) {
     CRoomManager manager;
     EXPECT_FALSE(manager.createRoom(0, "Alpha").ok);
@@ -215,6 +232,7 @@ TEST(RoomManager, RejectsInvalidOperations) {
     EXPECT_TRUE(manager.setPlayerName(1, "Bob").ok);
     EXPECT_TRUE(manager.setPlayerName(2, "Cara").ok);
     EXPECT_TRUE(manager.setPlayerName(3, "Dan").ok);
+    EXPECT_TRUE(manager.setPlayerName(4, "Eve").ok);
 
     ASSERT_TRUE(manager.createRoom(0, "Alpha").ok);
     const auto roomId = manager.roomIdOfPlayer(0);
@@ -225,6 +243,7 @@ TEST(RoomManager, RejectsInvalidOperations) {
     EXPECT_TRUE(manager.joinRoom(2, *roomId).ok);
     EXPECT_TRUE(manager.joinRoom(3, *roomId).ok);
     EXPECT_FALSE(manager.joinRoom(3, *roomId).ok);
+    EXPECT_FALSE(manager.joinRoom(4, *roomId).ok);
     EXPECT_FALSE(manager.launch(1).ok);
     ASSERT_TRUE(manager.launch(0).ok);
     EXPECT_FALSE(manager.launch(0).ok);

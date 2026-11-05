@@ -9,7 +9,7 @@ This document describes the network protocol of the part 1 of the project.
 The protocol has two phases:
 
 1. A reliable TCP handshake establishes the client's gameplay endpoint and
-   assigns a player ID.
+   assigns a connection ID.
 2. Gameplay data is exchanged as UDP datagrams. Clients send input; the server
    sends authoritative scene snapshots.
 
@@ -25,10 +25,10 @@ structure is not part of the protocol.
 | TCP | `7000` | Connection handshake and connection liveness |
 | UDP | `7001` | Server gameplay endpoint |
 
-The client binds its UDP socket to an available local port before opening the
-TCP connection. The client advertises that local UDP port in the TCP hello.
-The server uses the TCP peer address together with the advertised UDP port as
-the client's UDP endpoint.
+The client binds its gameplay and voice UDP sockets to available local ports
+before opening the TCP connection. The client advertises both ports in the TCP
+hello. The server uses the TCP peer address together with the advertised ports
+as the client's UDP endpoints.
 
 The server identifies UDP input by its source endpoint. A datagram from an
 endpoint that was not registered by the TCP handshake is ignored.
@@ -80,6 +80,7 @@ A UDP packet has this general form:
 
 ```text
 packet header
+simulation tick (snapshot and update packets only)
 command header
 command payload
 ...
@@ -89,24 +90,30 @@ terminator
 Snapshot packets may contain multiple commands. The receiver reads commands
 until it reaches the packet terminator.
 
+Snapshot and update packets include an eight-byte unsigned little-endian
+simulation tick immediately after the four-byte packet header. The tick is
+authoritative and identifies the server simulation state represented by the
+packet.
+
 ## Connection handshake
 
 The handshake uses TCP and does not use the UDP command layout.
 
 ### Client hello
 
-The client sends exactly seven bytes after establishing the TCP connection:
+The client sends exactly nine bytes after establishing the TCP connection:
 
 | Offset | Size | Field |
 | ---: | ---: | --- |
 | 0 | 3 bytes | Magic: `H`, `A`, `J` |
 | 3 | 1 byte | Packet type: `1` (`HELLO`) |
-| 4 | 2 bytes | Client UDP port, unsigned 16-bit integer |
-| 6 | 1 byte | `0D` |
+| 4 | 2 bytes | Client gameplay UDP port, unsigned 16-bit integer |
+| 6 | 2 bytes | Client voice UDP port, unsigned 16-bit integer |
+| 8 | 1 byte | `0D` |
 
 The port is encoded little-endian. A port value of zero is invalid.
 
-The server accepts the client only if the message is exactly seven bytes,
+The server accepts the client only if the message is exactly nine bytes,
 contains the expected magic and packet type, ends in `0D`, and contains a
 non-zero UDP port.
 
@@ -118,13 +125,14 @@ The server replies with exactly five bytes:
 | ---: | ---: | --- |
 | 0 | 3 bytes | Magic: `H`, `A`, `J` |
 | 3 | 1 byte | Welcome type: `3` (`WELCOME`) |
-| 4 | 1 byte | Assigned player ID |
+| 4 | 1 byte | Assigned connection ID |
 
-The player ID must be in the range `0` through `3`. The welcome message has
-no UDP terminator.
+The connection ID is an unsigned byte. The server currently assigns IDs in the
+range `0` through `63`. The per-room gameplay player ID (`0`–`3`) is assigned
+later in `GAME_STARTED`. The welcome message has no UDP terminator.
 
 After sending the welcome, the server associates the TCP peer address and the
-advertised UDP port with the assigned player ID.
+advertised UDP port with the assigned connection ID.
 
 ## Lobby phase
 
@@ -153,8 +161,9 @@ Their payload layouts are documented in
 
 A room holds at most four players. The first player to create or join a room is
 its master; only the master may send `LAUNCH_GAME`. The server answers with
-`GAME_STARTED` to every room member. Until then, the client shows the room and
-waits for the master.
+`GAME_STARTED` to every room member, carrying the room ID and the per-room
+gameplay player ID (`0`–`3`) that client uses for input. Until then, the client
+shows the room and waits for the master.
 
 ## Packet and command types
 
@@ -165,6 +174,7 @@ waits for the master.
 | `1` | `HELLO` | TCP | Client to server | Client handshake |
 | `2` | `INPUT` | UDP | Client to server | Latest player input state |
 | `3` | `SNAPSHOT` | UDP | Server to client | Authoritative scene state |
+| `4` | `UPDATE` | UDP | Server to client | Partial authoritative scene update |
 
 The TCP welcome uses command value `3` in its fourth byte, but is a dedicated
 five-byte TCP message rather than a UDP packet.
@@ -177,6 +187,8 @@ five-byte TCP message rather than a UDP packet.
 | `2` | `INPUT` | Player input payload |
 | `3` | `WELCOME` | Player assignment |
 | `4` | `SNAPSHOT_ENTITY` | One entity in a scene snapshot |
+| `5` | `UPDATE_ENTITY` | Partial component update for one entity |
+| `6` | `REMOVE_ENTITY` | Remove one entity from the client scene |
 
 The `HELLO` and `WELCOME` command forms used by the TCP handshake are
 specialized fixed-size messages described above.
@@ -220,6 +232,9 @@ A snapshot packet has packet type `3` and contains zero or more
 `SNAPSHOT_ENTITY` commands. The server sends the latest authoritative scene
 to each connected client.
 
+Its layout begins with the packet header and simulation tick, followed by the
+snapshot entity commands and the UDP terminator.
+
 Each entity command has the common nine-byte command header, a 32-bit unsigned
 payload length, and the entity payload. The payload starts with a 16-bit
 component count followed by that many length-prefixed component records:
@@ -241,9 +256,41 @@ The entity ID in the command header identifies the entity represented by the
 payload. It is encoded as an unsigned 64-bit value on the wire; current
 entities use the lower 32 bits.
 
-The entity ID in the command header identifies the entity represented by the
-payload. It is encoded as an unsigned 64-bit value on the wire; current
-entities use the lower 32 bits.
+## Update packet
+
+An update packet has packet type `4` and contains zero or more update
+commands. It changes only the components explicitly included in the packet;
+entities and components omitted from the packet remain unchanged on the
+client.
+
+Its layout begins with the packet header and simulation tick, followed by the
+update commands and the UDP terminator. The server chooses between snapshots
+and updates according to its network policy: snapshot and component schedules
+are evaluated with `(tick + offset) % interval == 0`.
+
+An `UPDATE_ENTITY` command uses the common command header followed by the same
+32-bit payload length and component-record layout as a snapshot entity. Its
+payload begins with a 16-bit component count, followed by length-prefixed
+serialized component records. Each record replaces the component represented
+by its stable type identifier. An update may contain fewer components than a
+snapshot and may introduce a new entity when its ID is not already present.
+
+A `REMOVE_ENTITY` command contains only the common nine-byte command header.
+Its entity ID is removed from the client scene. Removal is explicit; the
+absence of an entity from an update packet never removes it.
+
+The server selects snapshots and updates during gameplay according to the
+network policy. Snapshots provide periodic full-state resynchronization, while
+updates carry the policy-selected component changes between snapshots.
+
+## Voice packet
+
+A voice packet has packet type `5` on the separate voice UDP port. Its payload
+contains a one-byte gameplay player ID, a little-endian 16-bit sequence number,
+a little-endian 16-bit Opus payload length, the opaque Opus payload, and the
+`0D 0A` terminator. Opus frames are mono, 48 kHz, and 20 ms (960 samples);
+payloads are limited to 1275 bytes. The relay validates framing and forwards
+packets without decoding them.
 
 ## Validation and handling
 
@@ -254,13 +301,16 @@ A receiver must validate a packet before reading its fields:
 3. Verify the final `0D 0A` terminator for UDP packets.
 4. Verify the command type.
 5. Verify fixed-size packets have their exact required length.
-6. Verify variable-length snapshot commands remain within the datagram.
+6. Verify variable-length snapshot and update commands remain within the datagram.
 7. Reject malformed or unknown data without applying it to game state.
 
-UDP datagrams are processed independently. The protocol does not include
+UDP datagrams are processed independently. Gameplay packets do not include
 sequence numbers, acknowledgements, retransmission, encryption, or
-authentication. A lost or malformed gameplay datagram is discarded and the
-next valid input or snapshot is used.
+authentication. Voice packets include sequence numbers so clients can discard
+duplicate or out-of-order frames. A lost or malformed gameplay datagram is
+discarded and the
+next valid input or state packet is used. Clients reject valid snapshot or
+update packets whose tick is older than the last accepted state packet.
 
 The client and server receive buffers support the maximum IPv4 UDP payload of
 65,507 bytes. Datagram boundaries are preserved; a packet is never assembled
@@ -271,14 +321,14 @@ from multiple receives.
 ```text
 Client                                      Server
   |                                           |
-  |--- TCP connect to port 7000 ------------>|
+  |--- TCP connect to port 7000 ------------->|
   |--- 7-byte client hello ------------------>|
   |<-- 5-byte server welcome -----------------|
   |                                           |
   |--- JOIN / CREATE_ROOM / SELECT_ROOM ----->|
   |<-- ROOM_LIST / ROOM_JOINED / ROOM_STATE --|
   |--- LAUNCH_GAME (room master) ------------>|
-  |<-- GAME_STARTED ---------------------------|
+  |<-- GAME_STARTED(room_id, gameplay_id) ----|
   |                                           |
   |--- UDP input to port 7001 --------------->|
   |                                           |

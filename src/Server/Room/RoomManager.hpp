@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Shared/Lobby.hpp"
-#include "Shared/PlayerActions.hpp"
 
 #include <array>
 #include <cstdint>
@@ -10,12 +9,16 @@
 #include <vector>
 
 // Owns the lobby-side room state. Player identifiers are the connection IDs
-// assigned by the TCP handshake (0..SPLayerActions::MaxPlayers-1).
+// assigned by the TCP handshake (0..Room::MaxConnections-1). Each room is
+// capped at Room::MaxPlayersPerRoom players. Spectators watch a room without a
+// character: they never take a player slot, never lead the room, and are capped
+// separately at Room::MaxSpectatorsPerRoom.
 class CRoomManager {
   public:
     [[nodiscard]] Room::SResult setPlayerName(std::uint8_t playerId, const std::string& name);
     [[nodiscard]] Room::SResult createRoom(std::uint8_t playerId, const std::string& roomName);
     [[nodiscard]] Room::SResult joinRoom(std::uint8_t playerId, std::uint16_t roomId);
+    [[nodiscard]] Room::SResult spectateRoom(std::uint8_t playerId, std::uint16_t roomId);
     [[nodiscard]] Room::SResult leaveRoom(std::uint8_t playerId);
     [[nodiscard]] Room::SResult launch(std::uint8_t playerId);
     void                        removePlayer(std::uint8_t playerId);
@@ -25,6 +28,10 @@ class CRoomManager {
     [[nodiscard]] std::optional<Room::SInfo>   roomOfPlayer(std::uint8_t playerId) const;
     [[nodiscard]] std::optional<std::uint16_t> roomIdOfPlayer(std::uint8_t playerId) const;
     [[nodiscard]] std::vector<std::uint8_t>    playersInRoom(std::uint16_t roomId) const;
+    [[nodiscard]] std::vector<std::uint8_t>    spectatorsInRoom(std::uint16_t roomId) const;
+    // Players followed by spectators: everyone who receives room traffic.
+    [[nodiscard]] std::vector<std::uint8_t>    occupantsInRoom(std::uint16_t roomId) const;
+    [[nodiscard]] bool                         isSpectator(std::uint8_t playerId) const;
     [[nodiscard]] bool                         isMaster(std::uint8_t playerId) const;
     [[nodiscard]] std::optional<std::uint16_t> activeRoom() const;
     [[nodiscard]] std::uint16_t                roomCount() const;
@@ -40,16 +47,17 @@ class CRoomManager {
         Room::eState              state    = Room::eState::WAITING;
         std::uint8_t              masterId = 0;
         std::vector<std::uint8_t> players;
+        std::vector<std::uint8_t> spectators;
     };
 
-    [[nodiscard]] SRoom*                                findRoom(std::uint16_t roomId);
-    [[nodiscard]] const SRoom*                          findRoom(std::uint16_t roomId) const;
-    [[nodiscard]] Room::SInfo                           makeInfo(const SRoom& room) const;
-    void                                                removeRoom(std::uint16_t roomId);
+    [[nodiscard]] SRoom*                                           findRoom(std::uint16_t roomId);
+    [[nodiscard]] const SRoom*                                     findRoom(std::uint16_t roomId) const;
+    [[nodiscard]] Room::SInfo                                      makeInfo(const SRoom& room) const;
+    void                                                           removeRoom(std::uint16_t roomId);
 
-    std::array<std::string, SPLayerActions::MaxPlayers> mPlayerNames{};
-    std::array<std::optional<std::uint16_t>, SPLayerActions::MaxPlayers> mPlayerRooms{};
-    std::vector<SRoom>                                                   mRooms;
-    std::uint16_t                                                        mNextRoomId = 1;
-    std::optional<std::uint16_t>                                         mActiveRoom;
+    std::array<std::string, Room::MaxConnections>                  mPlayerNames{};
+    std::array<std::optional<std::uint16_t>, Room::MaxConnections> mPlayerRooms{};
+    std::vector<SRoom>                                             mRooms;
+    std::uint16_t                                                  mNextRoomId = 1;
+    std::optional<std::uint16_t>                                   mActiveRoom;
 };
