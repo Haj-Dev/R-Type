@@ -2,7 +2,7 @@
 #include "Shared/Types.hpp"
 #include "Shared/Systems/AudioSystem.hpp"
 
-#include <opus/opus.h>
+#include <opus.h>
 
 #include <array>
 
