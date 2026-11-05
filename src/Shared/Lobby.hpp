@@ -100,6 +100,10 @@ namespace Lobby {
         SELECT_SERVER,
         REFRESH_SERVERS,
         SEND_CHAT,
+        TOGGLE_MIC,
+        TOGGLE_DEAFEN,
+        VOLUME_UP,
+        VOLUME_DOWN,
         SPECTATE_ROOM,
     };
 
@@ -124,14 +128,18 @@ namespace Lobby {
     };
 
     struct SLobbyState {
-        eLobbyPhase                 phase    = eLobbyPhase::CONNECTING;
-        std::uint8_t                playerId = 0;
+        eLobbyPhase                 phase      = eLobbyPhase::CONNECTING;
+        std::uint8_t                playerId   = 0;
+        std::uint8_t                gameplayId = 0;
         std::string                 playerName;
         std::vector<SServerInfo>    servers;
         std::vector<Room::SSummary> rooms;
         std::optional<Room::SInfo>  currentRoom;
         Ecs::CRegistry              chat; // chat messages and typing state, see Chat::CChatSystem
         std::string                 message;
+        bool                        microphoneEnabled = true;
+        bool                        deafened          = false;
+        float                       voiceVolume       = 1.0F;
     };
 
     // True when this client is in a room as a spectator (watching without a character).

@@ -8,12 +8,14 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <span>
 #include <vector>
 
 namespace Net {
 
-    inline constexpr std::uint16_t               DefaultTcpPort = 7000;
-    inline constexpr std::uint16_t               DefaultUdpPort = 7001;
+    inline constexpr std::uint16_t               DefaultTcpPort   = 7000;
+    inline constexpr std::uint16_t               DefaultUdpPort   = 7001;
+    inline constexpr std::uint16_t               DefaultVoicePort = 7002;
     inline constexpr std::array<std::uint8_t, 3> Magic{{'H', 'A', 'J'}};
     inline constexpr std::uint16_t               Terminator = 0x0D0A;
 
@@ -22,6 +24,7 @@ namespace Net {
         INPUT    = 2,
         SNAPSHOT = 3,
         UPDATE   = 4,
+        VOICE    = 5,
     };
 
     enum class eCommandType : std::uint8_t {
@@ -33,11 +36,13 @@ namespace Net {
         REMOVE_ENTITY   = 6,
     };
 
-    inline constexpr std::size_t HeaderSize        = 4;
-    inline constexpr std::size_t TickSize          = sizeof(std::uint64_t);
-    inline constexpr std::size_t CommandHeaderSize = 9;
-    inline constexpr std::size_t HandshakeSize     = 7;
-    inline constexpr std::size_t MaxUdpPayloadSize = 65507;
+    inline constexpr std::size_t HeaderSize           = 4;
+    inline constexpr std::size_t TickSize             = sizeof(std::uint64_t);
+    inline constexpr std::size_t CommandHeaderSize    = 9;
+    inline constexpr std::size_t HandshakeSize        = 9;
+    inline constexpr std::size_t VoiceSamplesPerFrame = 960;
+    inline constexpr std::size_t MaxVoicePayloadSize  = 1275;
+    inline constexpr std::size_t MaxUdpPayloadSize    = 65507;
 
     inline void appendBytes(std::vector<std::uint8_t>& output, const void* data, std::size_t size) {
         const auto* bytes = static_cast<const std::uint8_t*>(data);
@@ -76,26 +81,98 @@ namespace Net {
         return packet;
     }
 
-    inline std::vector<std::uint8_t> makeTcpHello(std::uint16_t udpPort) {
-        const auto port = static_cast<std::uint32_t>(udpPort);
+    inline std::vector<std::uint8_t> makeTcpHello(std::uint16_t udpPort, std::uint16_t voicePort) {
         return {
             Magic.at(0),
             Magic.at(1),
             Magic.at(2),
             static_cast<std::uint8_t>(ePacketType::HELLO),
-            static_cast<std::uint8_t>(port & 0xffU),
-            static_cast<std::uint8_t>((port >> 8U) & 0xffU),
+            static_cast<std::uint8_t>(static_cast<std::uint32_t>(udpPort) & 0xffU),
+            static_cast<std::uint8_t>((static_cast<std::uint32_t>(udpPort) >> 8U) & 0xffU),
+            static_cast<std::uint8_t>(static_cast<std::uint32_t>(voicePort) & 0xffU),
+            static_cast<std::uint8_t>((static_cast<std::uint32_t>(voicePort) >> 8U) & 0xffU),
+            0x0D,
+        };
+    }
+
+    inline bool readTcpHello(const std::uint8_t* data, std::size_t size, std::uint16_t& udpPort,
+                             std::uint16_t& voicePort) {
+        if (size != HandshakeSize || data[0] != Magic.at(0) || data[1] != Magic.at(1) ||
+            data[2] != Magic.at(2) || data[3] != static_cast<std::uint8_t>(ePacketType::HELLO) ||
+            data[8] != 0x0D)
+            return false;
+        udpPort   = static_cast<std::uint16_t>(static_cast<std::uint32_t>(data[4]) |
+                                               (static_cast<std::uint32_t>(data[5]) << 8U));
+        voicePort = static_cast<std::uint16_t>(static_cast<std::uint32_t>(data[6]) |
+                                               (static_cast<std::uint32_t>(data[7]) << 8U));
+        return udpPort != 0 && voicePort != 0;
+    }
+
+    inline std::vector<std::uint8_t> makeTcpHello(std::uint16_t udpPort) {
+        return {
+            Magic.at(0),
+            Magic.at(1),
+            Magic.at(2),
+            static_cast<std::uint8_t>(ePacketType::HELLO),
+            static_cast<std::uint8_t>(static_cast<std::uint32_t>(udpPort) & 0xffU),
+            static_cast<std::uint8_t>((static_cast<std::uint32_t>(udpPort) >> 8U) & 0xffU),
             0x0D,
         };
     }
 
     inline bool readTcpHello(const std::uint8_t* data, std::size_t size, std::uint16_t& udpPort) {
-        if (size != HandshakeSize || data[0] != Magic.at(0) || data[1] != Magic.at(1) ||
-            data[2] != Magic.at(2) || data[3] != static_cast<std::uint8_t>(ePacketType::HELLO) ||
-            data[6] != 0x0D)
+        if (size != 7 || data[0] != Magic.at(0) || data[1] != Magic.at(1) || data[2] != Magic.at(2) ||
+            data[3] != static_cast<std::uint8_t>(ePacketType::HELLO) || data[6] != 0x0D)
             return false;
-        udpPort = static_cast<std::uint16_t>(data[4]) | (static_cast<std::uint32_t>(data[5]) << 8U);
+        udpPort = static_cast<std::uint16_t>(static_cast<std::uint32_t>(data[4]) |
+                                             (static_cast<std::uint32_t>(data[5]) << 8U));
         return udpPort != 0;
+    }
+
+    inline bool validVoicePacket(const std::uint8_t* data, std::size_t size) {
+        constexpr std::size_t voiceHeaderSize =
+            HeaderSize + 1 + sizeof(std::uint16_t) + sizeof(std::uint16_t);
+        if (size < voiceHeaderSize + sizeof(Terminator))
+            return false;
+        const auto payloadSize = static_cast<std::uint16_t>(static_cast<std::uint32_t>(data[7]) |
+                                                            (static_cast<std::uint32_t>(data[8]) << 8U));
+        return payloadSize > 0 && payloadSize <= MaxVoicePayloadSize &&
+            size == voiceHeaderSize + payloadSize + sizeof(Terminator) && data[0] == Magic.at(0) &&
+            data[1] == Magic.at(1) && data[2] == Magic.at(2) &&
+            data[3] == static_cast<std::uint8_t>(ePacketType::VOICE) && data[size - 2] == 0x0D &&
+            data[size - 1] == 0x0A;
+    }
+
+    inline std::vector<std::uint8_t> makeVoice(std::uint8_t playerId, std::uint16_t sequence,
+                                               std::span<const std::uint8_t> payload) {
+        if (payload.empty() || payload.size() > MaxVoicePayloadSize)
+            return {};
+        auto packet = beginPacket(ePacketType::VOICE);
+        packet.push_back(playerId);
+        const auto wideSequence = static_cast<std::uint32_t>(sequence);
+        const auto wideSize     = static_cast<std::uint32_t>(payload.size());
+        packet.push_back(static_cast<std::uint8_t>(wideSequence & 0xffU));
+        packet.push_back(static_cast<std::uint8_t>((wideSequence >> 8U) & 0xffU));
+        packet.push_back(static_cast<std::uint8_t>(wideSize & 0xffU));
+        packet.push_back(static_cast<std::uint8_t>((wideSize >> 8U) & 0xffU));
+        appendBytes(packet, payload.data(), payload.size());
+        finishPacket(packet);
+        return packet;
+    }
+
+    inline bool readVoice(const std::uint8_t* data, std::size_t size, std::uint8_t& playerId,
+                          std::uint16_t& sequence, std::vector<std::uint8_t>& payload) {
+        if (!validVoicePacket(data, size))
+            return false;
+        playerId               = data[4];
+        sequence               = static_cast<std::uint16_t>(static_cast<std::uint32_t>(data[5]) |
+                                                            (static_cast<std::uint32_t>(data[6]) << 8U));
+        const auto payloadSize = static_cast<std::uint16_t>(static_cast<std::uint32_t>(data[7]) |
+                                                            (static_cast<std::uint32_t>(data[8]) << 8U));
+        constexpr std::size_t payloadOffset =
+            HeaderSize + 1 + sizeof(std::uint16_t) + sizeof(std::uint16_t);
+        payload.assign(data + payloadOffset, data + payloadOffset + payloadSize);
+        return true;
     }
 
     inline std::vector<std::uint8_t> makeTcpWelcome(std::uint8_t playerId) {

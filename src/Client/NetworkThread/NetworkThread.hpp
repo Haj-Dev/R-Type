@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <array>
 #include <asio.hpp>
 #include <condition_variable>
 #include <deque>
@@ -14,6 +15,8 @@
 #include "Shared/SceneData.hpp"
 #include "Shared/PlayerActions.hpp"
 #include "Shared/Systems/ChatSystem.hpp"
+#include "Shared/Systems/AudioSystem.hpp"
+#include "VoiceCodec.hpp"
 
 class CNetworkThread {
   public:
@@ -59,6 +62,7 @@ class CNetworkThread {
     void                     sendLobbyFrame(const std::vector<std::uint8_t>& frame);
     void                     sendInput();
     void                     receiveSnapshots(std::vector<std::uint8_t>& buffer);
+    void                     processVoice();
 
     asio::io_context&        mIo;
     SSceneData&              mSceneData;
@@ -71,18 +75,25 @@ class CNetworkThread {
     std::uint16_t            mMasterPort;
     std::string              mPreferredServer;
     Lobby::SLobbyState&      mLobbyState;
-    std::deque<Lobby::SCommand>& mLobbyCommands;
-    std::thread                  mThread;
-    asio::ip::udp::socket        mSocket;
-    asio::ip::tcp::socket        mTcpSocket;
-    asio::ip::udp::endpoint      mServerEndpoint;
-    std::uint8_t                 mPlayerId   = 0;
-    std::uint8_t                 mGameplayId = 0;
-    std::atomic_bool             mConnected  = false;
-    std::vector<std::uint8_t>    mTcpBuffer;
-    std::uint64_t                mLastReceivedTick = 0;
-    bool                         mHasReceivedTick  = false;
-    bool                         mInGame           = false;
-    bool                         mSpectating       = false;
-    Chat::CChatSystem            mChatSystem;
+    std::deque<Lobby::SCommand>&         mLobbyCommands;
+    std::thread                          mThread;
+    asio::ip::udp::socket                mSocket;
+    asio::ip::udp::socket                mVoiceSocket;
+    asio::ip::tcp::socket                mTcpSocket;
+    asio::ip::udp::endpoint              mServerEndpoint;
+    asio::ip::udp::endpoint              mVoiceServerEndpoint;
+    std::uint8_t                         mPlayerId   = 0;
+    std::uint8_t                         mGameplayId = 0;
+    std::atomic_bool                     mConnected  = false;
+    std::vector<std::uint8_t>            mTcpBuffer;
+    std::uint64_t                        mLastReceivedTick = 0;
+    bool                                 mHasReceivedTick  = false;
+    bool                                 mInGame           = false;
+    bool                                 mSpectating       = false;
+    Chat::CChatSystem                    mChatSystem;
+    std::unique_ptr<Audio::AAudioSystem> mAudioSystem;
+    CVoiceCodec                          mVoiceCodec;
+    std::uint16_t                        mVoiceSequence = 0;
+    std::array<std::uint16_t, 256>       mVoiceLastSequence{};
+    std::array<bool, 256>                mVoiceHasSequence{};
 };
