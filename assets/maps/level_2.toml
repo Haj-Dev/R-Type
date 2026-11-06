@@ -5,26 +5,32 @@ startY = 130
 gapY = 105
 size = 16
 health = 1
-count = 6
-spawnSpeed = 0.9
-speed = 90
-
-[[enemies]]
-type = "random"
-start = 5
-size = 16
-health = 1
-count = 6
-spawnSpeed = 1.0
+count = 8
+spawnSpeed = 0.75
 speed = 100
 
 [[enemies]]
+type = "random"
+start = 4
+size = 16
+health = 1
+count = 8
+spawnSpeed = 0.8
+speed = 110
+
+[[enemies]]
 type = "column"
-start = 11
+start = 9
 startY = 210
 gapY = 70
 size = 17
 health = 2
-count = 4
-spawnSpeed = 1.2
-speed = 95
+count = 6
+spawnSpeed = 0.9
+speed = 105
+
+[[powerups]]
+type = "heavy"
+x = 520
+y = 350
+
