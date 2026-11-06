@@ -23,8 +23,12 @@ it is not part of the gameplay data path.
 ## Requirements
 
 The project is built with CMake and uses CPM.cmake to download Raylib, Asio,
-miniaudio, toml++, and GoogleTest during configuration. You do not need to
-install those libraries separately.
+miniaudio, Opus, toml++, and GoogleTest during configuration. You do not need
+to install those libraries separately.
+
+Third-party dependency licenses and copyright notices are documented in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). Keep that file with any
+source or binary distribution.
 
 Required:
 
@@ -290,6 +294,7 @@ assets/       Maps and game assets
 - Raylib 6.0 for rendering
 - standalone Asio 1.38 for networking
 - miniaudio 0.11.26 for microphone capture and playback
+- Opus 1.5.2 for voice encoding
 - toml++ 3.4 for TOML data
 - GoogleTest 1.17 for tests
 - CMake, CPM.cmake, and Ninja
