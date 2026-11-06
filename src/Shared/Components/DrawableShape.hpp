@@ -7,6 +7,14 @@ enum class eDrawableShape : std::uint8_t {
     CIRCLE,
 };
 
+enum class eDrawableColor : std::uint8_t {
+    COLOR_BLUE,
+    COLOR_RED,
+    COLOR_YELLOW,
+    COLOR_CYAN,
+    COLOR_MAGENTA,
+};
+
 struct SCDrawableShape : AComponent {
   public:
     SCDrawableShape() = default;

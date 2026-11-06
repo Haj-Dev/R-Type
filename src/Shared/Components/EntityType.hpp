@@ -12,6 +12,7 @@ namespace Game {
         ENEMY,
         PLAYER_PROJECTILE,
         ENEMY_PROJECTILE,
+        POWER_UP,
     };
 
 } // namespace Game
