@@ -99,8 +99,7 @@ commands:
 ```powershell
 git clone <repository-url>
 Set-Location R-Type
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
-cmake --build build
+.\build.ps1
 ```
 
 The resulting programs are `build\r-type_server.exe`,
