@@ -49,12 +49,11 @@ namespace Game {
                     player.damageCooldown = std::max(0.0F, player.damageCooldown - delta);
                     if (auto* weapon = registry.get<SCWeapon>(entity);
                         weapon != nullptr && weapon->mode != eWeaponMode::STANDARD) {
-                        weapon->durationRemaining =
-                            std::max(0.0F, weapon->durationRemaining - delta);
+                        weapon->durationRemaining = std::max(0.0F, weapon->durationRemaining - delta);
                         if (weapon->durationRemaining == 0.0F)
                             weapon->mode = eWeaponMode::STANDARD;
                     }
-                    const auto action     = actions.forPlayer(player.id);
+                    const auto action = actions.forPlayer(player.id);
                     position.x = std::clamp(position.x + (action.horizontal() * PlayerSpeed * delta),
                                             20.0F, WorldWidth - 20.0F);
                     position.y = std::clamp(position.y + (action.vertical() * PlayerSpeed * delta),
@@ -64,7 +63,7 @@ namespace Game {
                         projectiles.push_back(SPlayerSpawn{
                             .position = position,
                             .playerId = player.id,
-                            .mode = weapon != nullptr ? weapon->mode : eWeaponMode::STANDARD,
+                            .mode     = weapon != nullptr ? weapon->mode : eWeaponMode::STANDARD,
                         });
                         player.fireCooldown = FireInterval;
                     }
@@ -139,16 +138,22 @@ namespace Game {
             registry.emplace<SCVelocity>(entity, SCVelocity{ProjectileSpeed, verticalVelocity});
             const float damage = mode == eWeaponMode::HEAVY ? 3.0F : 1.0F;
             const float radius = mode == eWeaponMode::HEAVY ? 7.0F : 4.0F;
-            const float scale = mode == eWeaponMode::HEAVY ? 1.5F :
-                (mode == eWeaponMode::SPREAD ? 0.85F : 1.0F);
+            const float scale =
+                mode == eWeaponMode::HEAVY ? 1.5F : (mode == eWeaponMode::SPREAD ? 0.85F : 1.0F);
             registry.emplace<SCCollider>(entity, SCCollider{radius});
             registry.emplace<SCEntityType>(entity, SCEntityType{eEntityKind::PLAYER_PROJECTILE});
             registry.emplace<SCProjectile>(entity, SCProjectile{playerId, damage});
             registry.emplace<SCDrawableSpriteAtlas>(
                 entity,
                 SCDrawableSpriteAtlas{"assets/r-typesheet3.gif",
-                                      SDimentions{.width = 17U, .height = 17U}, 12, 15U, 0,
-                                      0, scale, {}, rotation});
+                                      SDimentions{.width = 17U, .height = 17U},
+                                      12,
+                                      15U,
+                                      0,
+                                      0,
+                                      scale,
+                                      {},
+                                      rotation});
         }
     };
 
@@ -252,13 +257,13 @@ namespace Game {
             powerUps_(levelPowerUps_.front()) {}
 
         explicit CEnemySpawnSystem(std::vector<std::vector<CEnemySpawn>> levelWaves,
-                                   float transitionDuration = 3.0F) :
+                                   float                                 transitionDuration = 3.0F) :
             levels_(std::move(levelWaves)), transitionDuration_(transitionDuration) {
             if (levels_.empty())
                 throw std::invalid_argument("a campaign must contain at least one level");
             levelPowerUps_.resize(levels_.size());
             enemySpawns = levels_.front();
-            powerUps_ = levelPowerUps_.front();
+            powerUps_   = levelPowerUps_.front();
         }
 
         explicit CEnemySpawnSystem(const std::vector<std::string>& levelFiles) {
@@ -272,7 +277,7 @@ namespace Game {
                 levelPowerUps_.push_back(std::move(level.powerUps));
             }
             enemySpawns = levels_.front();
-            powerUps_ = levelPowerUps_.front();
+            powerUps_   = levelPowerUps_.front();
         }
 
         static CEnemySpawnSystem campaign() {
@@ -312,8 +317,8 @@ namespace Game {
 
         [[nodiscard]] SCLevelState state() const {
             return SCLevelState{static_cast<std::uint8_t>(levelIndex_ + 1U),
-                                static_cast<std::uint8_t>(levelCount()),
-                                transitionRemaining_, finished_};
+                                static_cast<std::uint8_t>(levelCount()), transitionRemaining_,
+                                finished_};
         }
 
         [[nodiscard]] std::size_t levelCount() const noexcept {
@@ -328,12 +333,12 @@ namespace Game {
         };
 
         struct SLevelConfiguration {
-            std::vector<CEnemySpawn> enemies;
+            std::vector<CEnemySpawn>   enemies;
             std::vector<SPowerUpSpawn> powerUps;
         };
 
         static SLevelConfiguration parseLevelFile(const std::string& filepath) {
-            const toml::table  tbl = toml::parse_file(filepath);
+            const toml::table  tbl   = toml::parse_file(filepath);
             const toml::array* array = tbl.at_path("enemies").as_array();
             if (array == nullptr)
                 throw std::runtime_error("level file has no [[enemies]] entries: " + filepath);
@@ -350,10 +355,10 @@ namespace Game {
                     if (entry == nullptr)
                         throw std::runtime_error("invalid power-up entry in " + filepath);
                     const std::string type = entry->at_path("type").value_or(std::string{});
-                    const float x = entry->at_path("x").value_or(-1.0F);
-                    const float y = entry->at_path("y").value_or(-1.0F);
-                    if (!std::isfinite(x) || !std::isfinite(y) || x < 0.0F ||
-                        x > WorldWidth || y < 0.0F || y > WorldHeight)
+                    const float       x    = entry->at_path("x").value_or(-1.0F);
+                    const float       y    = entry->at_path("y").value_or(-1.0F);
+                    if (!std::isfinite(x) || !std::isfinite(y) || x < 0.0F || x > WorldWidth ||
+                        y < 0.0F || y > WorldHeight)
                         throw std::runtime_error("power-up position is outside the game world in " +
                                                  filepath);
                     if (type == "heavy")
@@ -368,12 +373,12 @@ namespace Game {
         }
 
         void loadLevel(std::size_t index) {
-            levelIndex_ = index;
-            timer_ = 0.0F;
+            levelIndex_          = index;
+            timer_               = 0.0F;
             transitionRemaining_ = 0.0F;
-            enemySpawns = levels_.at(index);
-            powerUps_ = levelPowerUps_.at(index);
-            powerUpsSpawned_ = false;
+            enemySpawns          = levels_.at(index);
+            powerUps_            = levelPowerUps_.at(index);
+            powerUpsSpawned_     = false;
         }
 
         void loadNextLevel(Ecs::CRegistry& registry) {
@@ -382,11 +387,11 @@ namespace Game {
                 return;
             }
             std::vector<Ecs::SEntity> remainingPowerUps;
-            registry.each<SCEntityType>([&remainingPowerUps](Ecs::SEntity entity,
-                                                             const SCEntityType& type) {
-                if (type.value == eEntityKind::POWER_UP)
-                    remainingPowerUps.push_back(entity);
-            });
+            registry.each<SCEntityType>(
+                [&remainingPowerUps](Ecs::SEntity entity, const SCEntityType& type) {
+                    if (type.value == eEntityKind::POWER_UP)
+                        remainingPowerUps.push_back(entity);
+                });
             for (const auto entity : remainingPowerUps)
                 registry.destroy(entity);
             loadLevel(levelIndex_ + 1U);
@@ -414,12 +419,11 @@ namespace Game {
                 registry.emplace<SCCollider>(entity, SCCollider{16.0F});
                 registry.emplace<SCEntityType>(entity, SCEntityType{eEntityKind::POWER_UP});
                 registry.emplace<SCPowerUp>(entity, SCPowerUp{powerUp.kind});
-                const auto color = powerUp.kind == ePowerUpKind::HEAVY ?
-                    eDrawableColor::COLOR_MAGENTA :
-                    eDrawableColor::COLOR_CYAN;
+                const auto color = powerUp.kind == ePowerUpKind::HEAVY ? eDrawableColor::COLOR_MAGENTA :
+                                                                         eDrawableColor::COLOR_CYAN;
                 registry.emplace<SCDrawableShape>(
-                    entity, SCDrawableShape{eDrawableShape::CIRCLE, 13.0F,
-                                            static_cast<std::uint8_t>(color), 1});
+                    entity,
+                    SCDrawableShape{eDrawableShape::CIRCLE, 13.0F, static_cast<std::uint8_t>(color), 1});
             }
             powerUpsSpawned_ = true;
         }
@@ -457,24 +461,24 @@ namespace Game {
         }
 
       private:
-        std::vector<std::vector<CEnemySpawn>> levels_;
+        std::vector<std::vector<CEnemySpawn>>   levels_;
         std::vector<std::vector<SPowerUpSpawn>> levelPowerUps_;
-        std::vector<CEnemySpawn> enemySpawns;
-        std::vector<SPowerUpSpawn> powerUps_;
-        std::size_t               levelIndex_ = 0;
-        float                     timer_ = 0.0F;
-        float                     transitionDuration_ = 3.0F;
-        float                     transitionRemaining_ = 0.0F;
-        bool                      finished_ = false;
-        bool                      powerUpsSpawned_ = false;
+        std::vector<CEnemySpawn>                enemySpawns;
+        std::vector<SPowerUpSpawn>              powerUps_;
+        std::size_t                             levelIndex_          = 0;
+        float                                   timer_               = 0.0F;
+        float                                   transitionDuration_  = 3.0F;
+        float                                   transitionRemaining_ = 0.0F;
+        bool                                    finished_            = false;
+        bool                                    powerUpsSpawned_     = false;
     };
 
     class CCollisionSystem {
       public:
         void update(Ecs::CRegistry& registry, bool authoritative = true) const {
-            std::vector<Ecs::SEntity> destroyed;
+            std::vector<Ecs::SEntity>                                         destroyed;
             std::vector<std::tuple<Ecs::SEntity, Ecs::SEntity, ePowerUpKind>> collectedPowerUps;
-            std::unordered_set<Ecs::SEntity> collectedPowerUpEntities;
+            std::unordered_set<Ecs::SEntity>                                  collectedPowerUpEntities;
             registry.each<SCPosition, SCCollider, SCEntityType, SCProjectile>(
                 [&](Ecs::SEntity projectile, SCPosition& projectilePosition,
                     SCCollider& projectileCollider, SCEntityType& projectileType,
@@ -526,8 +530,9 @@ namespace Game {
 
             if (authoritative) {
                 registry.each<SCPosition, SCCollider, SCEntityType, SCHealth, SCPlayer>(
-                    [&](Ecs::SEntity playerEntity, SCPosition& playerPosition, SCCollider& playerCollider,
-                        SCEntityType& playerType, SCHealth& playerHealth, SCPlayer&) {
+                    [&](Ecs::SEntity playerEntity, SCPosition& playerPosition,
+                        SCCollider& playerCollider, SCEntityType& playerType, SCHealth& playerHealth,
+                        SCPlayer&) {
                         if (playerType.value != eEntityKind::PLAYER || playerHealth.value <= 0)
                             return;
                         registry.each<SCPosition, SCCollider, SCEntityType, SCPowerUp>(
@@ -537,8 +542,8 @@ namespace Game {
                                 if (powerUpType.value != eEntityKind::POWER_UP ||
                                     collectedPowerUpEntities.contains(powerUpEntity))
                                     return;
-                                const float dx = playerPosition.x - powerUpPosition.x;
-                                const float dy = playerPosition.y - powerUpPosition.y;
+                                const float dx     = playerPosition.x - powerUpPosition.x;
+                                const float dy     = playerPosition.y - powerUpPosition.y;
                                 const float radius = playerCollider.radius + powerUpCollider.radius;
                                 if ((dx * dx) + (dy * dy) <= radius * radius) {
                                     collectedPowerUpEntities.insert(powerUpEntity);
@@ -556,14 +561,13 @@ namespace Game {
                 if (registry.get<SCPowerUp>(powerUpEntity) == nullptr ||
                     registry.get<SCPlayer>(collector) == nullptr)
                     continue;
-                const auto mode = kind == ePowerUpKind::HEAVY ? eWeaponMode::HEAVY :
-                                                               eWeaponMode::SPREAD;
+                const auto mode = kind == ePowerUpKind::HEAVY ? eWeaponMode::HEAVY : eWeaponMode::SPREAD;
                 if (auto* weapon = registry.get<SCWeapon>(collector)) {
-                    weapon->mode = mode;
+                    weapon->mode              = mode;
                     weapon->durationRemaining = CPlayerSystem::PowerUpDuration;
                 } else {
-                    registry.emplace<SCWeapon>(
-                        collector, SCWeapon{mode, CPlayerSystem::PowerUpDuration});
+                    registry.emplace<SCWeapon>(collector,
+                                               SCWeapon{mode, CPlayerSystem::PowerUpDuration});
                 }
                 registry.destroy(powerUpEntity);
             }

@@ -15,7 +15,7 @@ struct SCLevelState : AComponent {
 
     explicit SCLevelState(const std::vector<std::uint8_t>& data) : AComponent(data) {
         Components::CReader reader(data);
-        std::uint8_t       finishedByte = 0;
+        std::uint8_t        finishedByte = 0;
         if (!reader.read(level) || !reader.read(totalLevels) || !reader.read(transitionRemaining) ||
             !reader.read(finishedByte) || !reader.finished() || level == 0 || totalLevels == 0 ||
             level > totalLevels || finishedByte > 1 || transitionRemaining < 0.0F) {
@@ -37,8 +37,8 @@ struct SCLevelState : AComponent {
         Components::append(data, static_cast<std::uint8_t>(finished));
     }
 
-    std::uint8_t level = 1;
-    std::uint8_t totalLevels = 1;
-    float transitionRemaining = 0.0F;
-    bool finished = false;
+    std::uint8_t level               = 1;
+    std::uint8_t totalLevels         = 1;
+    float        transitionRemaining = 0.0F;
+    bool         finished            = false;
 };

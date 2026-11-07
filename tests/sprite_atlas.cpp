@@ -62,9 +62,7 @@ TEST(SpriteAtlas, PlayersUseFourFrameAtlasWithDistinctVariants) {
             EXPECT_EQ(atlas.variant, player.id % 4U);
         });
 
-    EXPECT_TRUE(std::ranges::all_of(foundPlayers, [](bool found) {
-        return found;
-    }));
+    EXPECT_TRUE(std::ranges::all_of(foundPlayers, [](bool found) { return found; }));
 }
 
 TEST(SpriteAtlas, EnemyUsesFiveFrameAtlas) {

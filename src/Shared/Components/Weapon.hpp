@@ -46,8 +46,8 @@ struct SCWeapon : AComponent {
         Components::append(data, durationRemaining);
     }
 
-    Game::eWeaponMode mode = Game::eWeaponMode::STANDARD;
-    float durationRemaining = 0.0F;
+    Game::eWeaponMode mode              = Game::eWeaponMode::STANDARD;
+    float             durationRemaining = 0.0F;
 };
 
 struct SCPowerUp : AComponent {

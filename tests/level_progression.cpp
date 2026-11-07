@@ -15,9 +15,9 @@
 
 namespace {
     struct SLevelChallenge {
-        std::uint32_t enemies = 0;
-        std::uint32_t totalHealth = 0;
-        float         fastestEnemy = 0.0F;
+        std::uint32_t enemies               = 0;
+        std::uint32_t totalHealth           = 0;
+        float         fastestEnemy          = 0.0F;
         float         shortestSpawnInterval = 0.0F;
     };
 
@@ -36,12 +36,10 @@ namespace {
 } // namespace
 
 TEST(LevelProgression, CampaignLoadsAllFiveLevelFiles) {
-    const auto root = sourceRoot();
+    const auto                     root = sourceRoot();
     const std::vector<std::string> files{
-        (root / "assets/maps/init.toml").string(),
-        (root / "assets/maps/level_2.toml").string(),
-        (root / "assets/maps/level_3.toml").string(),
-        (root / "assets/maps/level_4.toml").string(),
+        (root / "assets/maps/init.toml").string(),    (root / "assets/maps/level_2.toml").string(),
+        (root / "assets/maps/level_3.toml").string(), (root / "assets/maps/level_4.toml").string(),
         (root / "assets/maps/level_5.toml").string(),
     };
     Game::CEnemySpawnSystem campaign(files);
@@ -52,22 +50,22 @@ TEST(LevelProgression, CampaignLoadsAllFiveLevelFiles) {
 
     std::vector<SLevelChallenge> challenges;
     for (const auto& file : files) {
-        const auto        level = toml::parse_file(file);
+        const auto         level = toml::parse_file(file);
         const toml::array* waves = level.at_path("enemies").as_array();
         ASSERT_NE(waves, nullptr);
         SLevelChallenge challenge{.shortestSpawnInterval = std::numeric_limits<float>::max()};
         for (const auto& waveNode : *waves) {
             const auto* wave = waveNode.as_table();
             ASSERT_NE(wave, nullptr);
-            const auto count = wave->at_path("count").value_or(std::uint32_t{1});
+            const auto count  = wave->at_path("count").value_or(std::uint32_t{1});
             const auto health = wave->at_path("health").value_or(std::int16_t{1});
             challenge.enemies += count;
             challenge.totalHealth += count * static_cast<std::uint32_t>(health);
             challenge.fastestEnemy =
                 std::max(challenge.fastestEnemy, wave->at_path("speed").value_or(0.0F));
-            challenge.shortestSpawnInterval = std::min(
-                challenge.shortestSpawnInterval,
-                wave->at_path("spawnSpeed").value_or(std::numeric_limits<float>::max()));
+            challenge.shortestSpawnInterval =
+                std::min(challenge.shortestSpawnInterval,
+                         wave->at_path("spawnSpeed").value_or(std::numeric_limits<float>::max()));
         }
         challenges.push_back(challenge);
     }
@@ -76,14 +74,13 @@ TEST(LevelProgression, CampaignLoadsAllFiveLevelFiles) {
         EXPECT_GT(challenges[index].enemies, challenges[index - 1].enemies);
         EXPECT_GT(challenges[index].totalHealth, challenges[index - 1].totalHealth);
         EXPECT_GT(challenges[index].fastestEnemy, challenges[index - 1].fastestEnemy);
-        EXPECT_LT(challenges[index].shortestSpawnInterval,
-                  challenges[index - 1].shortestSpawnInterval);
+        EXPECT_LT(challenges[index].shortestSpawnInterval, challenges[index - 1].shortestSpawnInterval);
     }
 }
 
 TEST(LevelProgression, WaitsForClearAndTransitionsBetweenLevels) {
     Game::CEnemySpawnSystem progression({{}, {}}, 1.0F);
-    Ecs::CRegistry         registry;
+    Ecs::CRegistry          registry;
 
     progression.update(registry, 0.016F);
     auto state = progression.state();
@@ -108,8 +105,8 @@ TEST(LevelProgression, WaitsForClearAndTransitionsBetweenLevels) {
 
 TEST(LevelProgression, DoesNotAdvanceWhileEnemiesRemain) {
     Game::CEnemySpawnSystem progression({{}, {}}, 1.0F);
-    Ecs::CRegistry         registry;
-    const auto             enemy = registry.create();
+    Ecs::CRegistry          registry;
+    const auto              enemy = registry.create();
     registry.emplace<SCEntityType>(enemy, SCEntityType{Game::eEntityKind::ENEMY});
 
     progression.update(registry, 0.016F);
@@ -121,13 +118,13 @@ TEST(LevelProgression, DoesNotAdvanceWhileEnemiesRemain) {
 }
 
 TEST(LevelProgression, LevelStateSurvivesSerialization) {
-    SCLevelState           expected{3U, 5U, 2.5F, false};
+    SCLevelState              expected{3U, 5U, 2.5F, false};
     std::vector<std::uint8_t> bytes;
     expected.serialize(bytes);
 
     CComponentRegistry components;
     const auto         decoded = components.deserialize(bytes);
-    const auto*        actual = dynamic_cast<const SCLevelState*>(decoded.get());
+    const auto*        actual  = dynamic_cast<const SCLevelState*>(decoded.get());
     ASSERT_NE(actual, nullptr);
     EXPECT_EQ(actual->level, 3U);
     EXPECT_EQ(actual->totalLevels, 5U);
@@ -138,18 +135,18 @@ TEST(LevelProgression, LevelStateSurvivesSerialization) {
 TEST(LevelProgression, SnapshotCarriesAuthoritativeLevelToClient) {
     Game::CSimulation server = Game::CSimulation::deterministic();
     server.tick(0.016F);
-    const auto serverSnapshot = server.snapshot();
+    const auto        serverSnapshot = server.snapshot();
 
     Game::CSimulation client = Game::CSimulation::deterministic();
     client.synchronize(serverSnapshot, 0);
     client.tick(5.0F, false);
 
-    const auto clientSnapshot = client.snapshot();
+    const auto         clientSnapshot = client.snapshot();
     CComponentRegistry components;
     for (const auto& entity : clientSnapshot) {
         for (const auto& bytes : entity.components) {
-            const auto component = components.deserialize(bytes);
-            const auto* state = dynamic_cast<const SCLevelState*>(component.get());
+            const auto  component = components.deserialize(bytes);
+            const auto* state     = dynamic_cast<const SCLevelState*>(component.get());
             if (state == nullptr)
                 continue;
             EXPECT_EQ(state->level, 1U);

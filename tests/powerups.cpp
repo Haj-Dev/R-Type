@@ -31,15 +31,13 @@ namespace {
         registry.emplace<SCHealth>(player, SCHealth{3});
         registry.emplace<SCEntityType>(player, SCEntityType{Game::eEntityKind::PLAYER});
         registry.emplace<SCPlayer>(player, SCPlayer{0});
-        const float duration = mode == Game::eWeaponMode::STANDARD ?
-            0.0F :
-            Game::CPlayerSystem::PowerUpDuration;
+        const float duration =
+            mode == Game::eWeaponMode::STANDARD ? 0.0F : Game::CPlayerSystem::PowerUpDuration;
         registry.emplace<SCWeapon>(player, SCWeapon{mode, duration});
         return player;
     }
 
-    Ecs::SEntity addPowerUp(Ecs::CRegistry& registry, float x, float y,
-                            Game::ePowerUpKind kind) {
+    Ecs::SEntity addPowerUp(Ecs::CRegistry& registry, float x, float y, Game::ePowerUpKind kind) {
         const auto powerUp = registry.create();
         registry.emplace<SCPosition>(powerUp, SCPosition{x, y});
         registry.emplace<SCCollider>(powerUp, SCCollider{16.0F});
@@ -50,7 +48,7 @@ namespace {
 } // namespace
 
 TEST(PowerUps, FixedPickupsLoadFromTheFirstLevel) {
-    const auto root = sourceRoot();
+    const auto              root = sourceRoot();
     Game::CEnemySpawnSystem campaign({
         (root / "assets/maps/init.toml").string(),
         (root / "assets/maps/level_2.toml").string(),
@@ -58,7 +56,7 @@ TEST(PowerUps, FixedPickupsLoadFromTheFirstLevel) {
         (root / "assets/maps/level_4.toml").string(),
         (root / "assets/maps/level_5.toml").string(),
     });
-    Ecs::CRegistry registry;
+    Ecs::CRegistry          registry;
 
     campaign.update(registry, 0.016F);
 
@@ -68,24 +66,26 @@ TEST(PowerUps, FixedPickupsLoadFromTheFirstLevel) {
             positions.push_back(position);
         });
     ASSERT_EQ(positions.size(), 2U);
-    EXPECT_NE(std::ranges::find_if(positions, [](const SCPosition& position) {
-                  return position.x == 440.0F && position.y == 225.0F;
-              }),
+    EXPECT_NE(std::ranges::find_if(positions,
+                                   [](const SCPosition& position) {
+                                       return position.x == 440.0F && position.y == 225.0F;
+                                   }),
               positions.end());
-    EXPECT_NE(std::ranges::find_if(positions, [](const SCPosition& position) {
-                  return position.x == 880.0F && position.y == 500.0F;
-              }),
+    EXPECT_NE(std::ranges::find_if(positions,
+                                   [](const SCPosition& position) {
+                                       return position.x == 880.0F && position.y == 500.0F;
+                                   }),
               positions.end());
 }
 
 TEST(PowerUps, EveryLevelDefinesValidFixedPickupLocations) {
-    const auto root = sourceRoot();
+    const auto                     root = sourceRoot();
     const std::vector<std::string> files{
         "init.toml", "level_2.toml", "level_3.toml", "level_4.toml", "level_5.toml",
     };
 
     for (const auto& file : files) {
-        const auto level = toml::parse_file((root / "assets/maps" / file).string());
+        const auto  level    = toml::parse_file((root / "assets/maps" / file).string());
         const auto* powerUps = level.at_path("powerups").as_array();
         ASSERT_NE(powerUps, nullptr) << file;
         ASSERT_FALSE(powerUps->empty()) << file;
@@ -105,9 +105,9 @@ TEST(PowerUps, EveryLevelDefinesValidFixedPickupLocations) {
 }
 
 TEST(PowerUps, OnlyServerCollectsAndAppliesPickup) {
-    Ecs::CRegistry registry;
-    const auto player = addPlayer(registry, Game::eWeaponMode::STANDARD);
-    const auto powerUp = addPowerUp(registry, 110.0F, 180.0F, Game::ePowerUpKind::SPREAD);
+    Ecs::CRegistry         registry;
+    const auto             player  = addPlayer(registry, Game::eWeaponMode::STANDARD);
+    const auto             powerUp = addPowerUp(registry, 110.0F, 180.0F, Game::ePowerUpKind::SPREAD);
     Game::CCollisionSystem collisions;
 
     collisions.update(registry, false);
@@ -124,9 +124,9 @@ TEST(PowerUps, OnlyServerCollectsAndAppliesPickup) {
 
 TEST(PowerUps, WeaponReturnsToStandardWhenTimerExpires) {
     Ecs::CRegistry registry;
-    const auto player = addPlayer(registry, Game::eWeaponMode::HEAVY);
+    const auto     player                             = addPlayer(registry, Game::eWeaponMode::HEAVY);
     registry.get<SCWeapon>(player)->durationRemaining = 2.0F;
-    SPLayerActions actions;
+    SPLayerActions      actions;
     Game::CPlayerSystem playerSystem;
 
     playerSystem.update(registry, actions, 1.5F);
@@ -140,7 +140,7 @@ TEST(PowerUps, WeaponReturnsToStandardWhenTimerExpires) {
 
 TEST(PowerUps, CollectingAnotherPickupRefreshesDurationAndMode) {
     Ecs::CRegistry registry;
-    const auto player = addPlayer(registry, Game::eWeaponMode::HEAVY);
+    const auto     player                             = addPlayer(registry, Game::eWeaponMode::HEAVY);
     registry.get<SCWeapon>(player)->durationRemaining = 1.0F;
     const auto powerUp = addPowerUp(registry, 110.0F, 180.0F, Game::ePowerUpKind::SPREAD);
 
@@ -170,11 +170,10 @@ TEST(PowerUps, HeavyWeaponMakesLargerHigherDamageProjectile) {
 
 TEST(PowerUps, HeavyProjectileDealsThreeDamageOnCollision) {
     Ecs::CRegistry registry;
-    const auto projectile = registry.create();
+    const auto     projectile = registry.create();
     registry.emplace<SCPosition>(projectile, SCPosition{200.0F, 200.0F});
     registry.emplace<SCCollider>(projectile, SCCollider{7.0F});
-    registry.emplace<SCEntityType>(projectile,
-                                   SCEntityType{Game::eEntityKind::PLAYER_PROJECTILE});
+    registry.emplace<SCEntityType>(projectile, SCEntityType{Game::eEntityKind::PLAYER_PROJECTILE});
     registry.emplace<SCProjectile>(projectile, SCProjectile{0, 3.0F});
     const auto enemy = registry.create();
     registry.emplace<SCPosition>(enemy, SCPosition{205.0F, 200.0F});
@@ -197,9 +196,8 @@ TEST(PowerUps, SpreadWeaponFiresThreeAngledProjectiles) {
     Game::CPlayerSystem{}.update(registry, actions, 0.016F);
 
     std::size_t projectileCount = 0;
-    registry.each<SCProjectile>([&projectileCount](Ecs::SEntity, const SCProjectile&) {
-        ++projectileCount;
-    });
+    registry.each<SCProjectile>(
+        [&projectileCount](Ecs::SEntity, const SCProjectile&) { ++projectileCount; });
     ASSERT_EQ(projectileCount, 3U);
     std::vector<float> verticalVelocities;
     registry.each<SCVelocity, SCProjectile>(
@@ -213,12 +211,12 @@ TEST(PowerUps, SpreadWeaponFiresThreeAngledProjectiles) {
 }
 
 TEST(PowerUps, WeaponModeSurvivesComponentSerialization) {
-    CComponentRegistry components;
+    CComponentRegistry        components;
     std::vector<std::uint8_t> bytes;
     SCWeapon{Game::eWeaponMode::SPREAD, Game::CPlayerSystem::PowerUpDuration}.serialize(bytes);
 
-    const auto decoded = components.deserialize(bytes);
-    const auto* weapon = dynamic_cast<const SCWeapon*>(decoded.get());
+    const auto  decoded = components.deserialize(bytes);
+    const auto* weapon  = dynamic_cast<const SCWeapon*>(decoded.get());
     ASSERT_NE(weapon, nullptr);
     EXPECT_EQ(weapon->mode, Game::eWeaponMode::SPREAD);
     EXPECT_FLOAT_EQ(weapon->durationRemaining, Game::CPlayerSystem::PowerUpDuration);
