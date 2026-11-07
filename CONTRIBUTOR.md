@@ -180,19 +180,11 @@ the `CHAT_SEND` / `CHAT_MESSAGE` commands and `CChatUI`.
 
 ## 7. Levels
 
-Levels are `.toml` files (see `docs/level_1.toml` for an example). Sections
-are described in [`docs/level-layout.md`](docs/level-layout.md):
-
-- **Level description:** `background`, `timer`, `music`, `player`.
-- **`enemies`:** one table per spawn wave (`type`, `start`, `startY`, `gapY`,
-  `size`, `damage`, `score`, `health`, `count`, `spawnSpeed`, `speed`,
-  `texture`, `deathSound`, `direction`).
-- **Tiles:** walls with position, size, texture and a collision flag.
-
-The doc and the example file are not fully consistent (section names such as
-`Level_description` and `tyles`, and some asset paths contain typos). Check
-the loader in `src/Shared/Systems/GameSystems.hpp` before relying on a key,
-and fix the doc or the example if you find a mismatch.
+The five-level campaign uses `.toml` files in `assets/maps/`. The first level
+is `init.toml`; levels two through five are `level_2.toml` to `level_5.toml`.
+Each `[[enemies]]` table defines a spawn wave and optional `[[powerups]]`
+tables place fixed weapon pickups. Supported keys, weapon types and level
+transition rules are documented in [`docs/level-layout.md`](docs/level-layout.md).
 
 ## 8. Code style
 

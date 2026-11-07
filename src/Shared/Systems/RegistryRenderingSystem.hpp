@@ -6,6 +6,7 @@
 #include "Shared/Components/Health.hpp"
 #include "Shared/Components/EntityType.hpp"
 #include "Shared/Components/Position.hpp"
+#include "Shared/Components/Weapon.hpp"
 #include "Shared/ECS/ECS.hpp"
 
 #include <algorithm>
@@ -104,6 +105,11 @@ namespace Game {
                     const auto& shape = *registry.get<SCDrawableShape>(command.entity);
                     DrawCircleV(Vector2{.x = position.x, .y = position.y}, shape.radius,
                                 color(shape.color));
+                    if (const auto* powerUp = registry.get<SCPowerUp>(command.entity)) {
+                        const char* label = powerUp->kind == Game::ePowerUpKind::HEAVY ? "H" : "S";
+                        DrawText(label, static_cast<int>(position.x) - 5,
+                                 static_cast<int>(position.y) - 8, 16, WHITE);
+                    }
                 }
             }
         }
@@ -127,11 +133,14 @@ namespace Game {
         }
 
         static Color color(std::uint8_t value) {
-            if (value == static_cast<std::uint8_t>(Game::eEntityKind::ENEMY))
-                return RED;
-            if (value == static_cast<std::uint8_t>(Game::eEntityKind::PLAYER_PROJECTILE))
-                return YELLOW;
-            return BLUE;
+            switch (static_cast<eDrawableColor>(value)) {
+                case eDrawableColor::COLOR_RED: return RED;
+                case eDrawableColor::COLOR_YELLOW: return YELLOW;
+                case eDrawableColor::COLOR_CYAN: return SKYBLUE;
+                case eDrawableColor::COLOR_MAGENTA: return MAGENTA;
+                case eDrawableColor::COLOR_BLUE:
+                default: return BLUE;
+            }
         }
 
         std::unordered_map<std::string, Texture2D> textures_;

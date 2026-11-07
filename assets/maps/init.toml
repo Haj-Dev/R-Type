@@ -1,60 +1,40 @@
-[[Level_description]]
-background="/assets/background.png"
-timer=70
-music="/assets/music.ogg"
-player="/assests/player.png"
-nextLevel="/levels/level_2"
+[[enemies]]
+type = "linear"
+start = 0
+startY = 135
+gapY = 115
+size = 15
+health = 1
+count = 7
+spawnSpeed = 1.05
+speed = 82
 
 [[enemies]]
-type="random"
-count=10
+type = "random"
+start = 6
+size = 15
+health = 1
+count = 5
+spawnSpeed = 1.2
+speed = 92
 
 [[enemies]]
-type="column"
-start=10
-startY=1200
-gapY=100
-size=50
-direction="up"
-damage=10
-score=10
-health=10
-count=10
-spawnSpeed=1
-speed=90
-texture="/assests/enemy.png"
-deathSound="/assets/enemy_death.ogg"
+type = "column"
+start = 11
+startY = 210
+gapY = 105
+size = 16
+health = 1
+count = 4
+spawnSpeed = 1.3
+speed = 88
 
-[[enemies]]
-type="linear"
-start=20
-count=5
-damage=10
-score=10
-health=10
-spawnSpeed=2
-speed=70
-startY=500
-texture="/assests/enemy.png"
-deathSound="/assests/enemy_death.ogg"
+[[powerups]]
+type = "spread"
+x = 440
+y = 225
 
-[[enemies]]
-type="wave"
-start=30
-count=10
-damage=10
-score=10
-health=10
-spawnSpeed=3
-speed=80
-startY=500
-texture="/assests/enemy.png"
-deathSound="/assets/enemy_death.ogg"
-
-[[tyles]]
-startX=100
-startY=500
-width=100
-height=100
-texture="/assets/tile.png"
-colision=true
+[[powerups]]
+type = "heavy"
+x = 880
+y = 500
