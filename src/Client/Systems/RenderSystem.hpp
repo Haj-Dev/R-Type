@@ -3,6 +3,7 @@
 #include "Shared/Components/LevelState.hpp"
 #include "Shared/Systems/IRenderSystem.hpp"
 #include "Shared/Systems/RegistryRenderingSystem.hpp"
+#include "Shared/Components/Weapon.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -89,6 +90,16 @@ class CRenderSystem : public IRenderSystem {
                                   static_cast<int>(barHeight), healthRatio > 0.5F ? green : red);
                     drawText(std::string(TextFormat("HP: %d/3", static_cast<int>(health.value))),
                              barX - 2, barY - 17, 12, white);
+                    if (const auto* weapon = registry.get<SCWeapon>(entity)) {
+                        const char* weaponName = weapon->mode == Game::eWeaponMode::HEAVY ? "HEAVY" :
+                            (weapon->mode == Game::eWeaponMode::SPREAD ? "SPREAD" : nullptr);
+                        if (weaponName != nullptr)
+                            drawText(std::string(TextFormat("%s %ds", weaponName,
+                                                            static_cast<int>(std::ceil(
+                                                                weapon->durationRemaining)))),
+                                     static_cast<int>(position.x) - 35,
+                                     static_cast<int>(position.y) + 22, 12, white);
+                    }
                 }
             });
     }

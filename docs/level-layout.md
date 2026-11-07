@@ -45,3 +45,36 @@ speed = 72
 The campaign becomes harder through larger waves, shorter spawn intervals,
 faster enemies, and higher health. Keep generated `startY` positions within the
 720-pixel game world.
+
+## Power-ups
+
+Each level may define fixed weapon pickups with `[[powerups]]` tables. Pickups
+appear when the level starts and are collected by flying into them. They are
+server-authoritative and are removed if the level ends before they are taken.
+
+| Key | Type | Meaning |
+| --- | --- | --- |
+| `type` | string | `heavy` increases shot damage and size; `spread` fires a three-shot fan. |
+| `x` | number | Fixed horizontal position in pixels. |
+| `y` | number | Fixed vertical position in pixels. |
+
+Example:
+
+```toml
+[[powerups]]
+type = "spread"
+x = 440
+y = 225
+```
+
+Each pickup replaces the player's current weapon mode. The selected mode is
+included in authoritative snapshots and remains active across level changes.
+Weapon pickups last 20 seconds; collecting another pickup replaces the mode
+and restarts its timer. The client HUD shows the remaining seconds.
+
+## Difficulty tuning
+
+The campaign's difficulty increases by raising wave counts, health and speed,
+and by reducing `spawnSpeed`. The intended total enemy counts are 16, 22, 28,
+32 and 38 from levels one through five. When tuning a level, keep its threat
+above the previous level while leaving enough time for players to react.

@@ -18,6 +18,8 @@ class AComponent {
         ENTITY_TYPE,
         CHAT_MESSAGE,
         LEVEL_STATE,
+        WEAPON,
+        POWER_UP,
     };
 
     AComponent()          = default;
