@@ -25,10 +25,10 @@ structure is not part of the protocol.
 | TCP | `7000` | Connection handshake and connection liveness |
 | UDP | `7001` | Server gameplay endpoint |
 
-The client binds its UDP socket to an available local port before opening the
-TCP connection. The client advertises that local UDP port in the TCP hello.
-The server uses the TCP peer address together with the advertised UDP port as
-the client's UDP endpoint.
+The client binds its gameplay and voice UDP sockets to available local ports
+before opening the TCP connection. The client advertises both ports in the TCP
+hello. The server uses the TCP peer address together with the advertised ports
+as the client's UDP endpoints.
 
 The server identifies UDP input by its source endpoint. A datagram from an
 endpoint that was not registered by the TCP handshake is ignored.
@@ -101,18 +101,19 @@ The handshake uses TCP and does not use the UDP command layout.
 
 ### Client hello
 
-The client sends exactly seven bytes after establishing the TCP connection:
+The client sends exactly nine bytes after establishing the TCP connection:
 
 | Offset | Size | Field |
 | ---: | ---: | --- |
 | 0 | 3 bytes | Magic: `H`, `A`, `J` |
 | 3 | 1 byte | Packet type: `1` (`HELLO`) |
-| 4 | 2 bytes | Client UDP port, unsigned 16-bit integer |
-| 6 | 1 byte | `0D` |
+| 4 | 2 bytes | Client gameplay UDP port, unsigned 16-bit integer |
+| 6 | 2 bytes | Client voice UDP port, unsigned 16-bit integer |
+| 8 | 1 byte | `0D` |
 
 The port is encoded little-endian. A port value of zero is invalid.
 
-The server accepts the client only if the message is exactly seven bytes,
+The server accepts the client only if the message is exactly nine bytes,
 contains the expected magic and packet type, ends in `0D`, and contains a
 non-zero UDP port.
 
@@ -282,6 +283,15 @@ The server selects snapshots and updates during gameplay according to the
 network policy. Snapshots provide periodic full-state resynchronization, while
 updates carry the policy-selected component changes between snapshots.
 
+## Voice packet
+
+A voice packet has packet type `5` on the separate voice UDP port. Its payload
+contains a one-byte gameplay player ID, a little-endian 16-bit sequence number,
+a little-endian 16-bit Opus payload length, the opaque Opus payload, and the
+`0D 0A` terminator. Opus frames are mono, 48 kHz, and 20 ms (960 samples);
+payloads are limited to 1275 bytes. The relay validates framing and forwards
+packets without decoding them.
+
 ## Validation and handling
 
 A receiver must validate a packet before reading its fields:
@@ -294,9 +304,11 @@ A receiver must validate a packet before reading its fields:
 6. Verify variable-length snapshot and update commands remain within the datagram.
 7. Reject malformed or unknown data without applying it to game state.
 
-UDP datagrams are processed independently. The protocol does not include
+UDP datagrams are processed independently. Gameplay packets do not include
 sequence numbers, acknowledgements, retransmission, encryption, or
-authentication. A lost or malformed gameplay datagram is discarded and the
+authentication. Voice packets include sequence numbers so clients can discard
+duplicate or out-of-order frames. A lost or malformed gameplay datagram is
+discarded and the
 next valid input or state packet is used. Clients reject valid snapshot or
 update packets whose tick is older than the last accepted state packet.
 

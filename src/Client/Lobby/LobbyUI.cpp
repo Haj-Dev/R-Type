@@ -257,6 +257,20 @@ void CLobbyUI::drawRoom(IRenderSystem& renderer, const Lobby::SLobbyState& state
     if (drawButton(renderer, 20, y + 100, 140, 44, "Leave Room"))
         commands.push_back(Lobby::SCommand{.type = Lobby::eClientCommand::LEAVE_ROOM, .text = {}});
 
+    const int voiceY = y + 165;
+    renderer.drawText("Voice (M: mute mic, Shift+M: deafen)", 20, voiceY, 20, White);
+    if (drawButton(renderer, 20, voiceY + 28, 145, 38,
+                   state.microphoneEnabled ? "Mic: on" : "Mic: muted"))
+        commands.push_back(Lobby::SCommand{.type = Lobby::eClientCommand::TOGGLE_MIC, .text = {}});
+    if (drawButton(renderer, 175, voiceY + 28, 145, 38, state.deafened ? "Deafened" : "Deafen"))
+        commands.push_back(Lobby::SCommand{.type = Lobby::eClientCommand::TOGGLE_DEAFEN, .text = {}});
+    if (drawButton(renderer, 330, voiceY + 28, 38, 38, "-"))
+        commands.push_back(Lobby::SCommand{.type = Lobby::eClientCommand::VOLUME_DOWN, .text = {}});
+    if (drawButton(renderer, 372, voiceY + 28, 38, 38, "+"))
+        commands.push_back(Lobby::SCommand{.type = Lobby::eClientCommand::VOLUME_UP, .text = {}});
+    renderer.drawText("volume " + std::to_string(static_cast<int>(state.voiceVolume * 100.0F)) + "%",
+                      420, voiceY + 37, 18, LightGray);
+
     renderer.drawText("Room state: " +
                           std::string(room.state == Room::eState::WAITING ? "waiting" : "in game"),
                       20, ScreenHeight - 70, 18, Gray);

@@ -8,6 +8,7 @@ the documents in [`docs/`](docs/) and links to them for details:
 | [`docs/architecture.md`](docs/architecture.md) | Source layout, simulation loop, the ECS |
 | [`docs/protocol.md`](docs/protocol.md) | UDP gameplay packets and the TCP handshake |
 | [`docs/server_system.md`](docs/server_system.md) | Master server, rooms, lobby and control-plane protocol |
+| [`docs/voice-chat.md`](docs/voice-chat.md) | Voice capture, transport, controls and limitations |
 | [`docs/level-layout.md`](docs/level-layout.md) | Level `.toml` file format |
 | [`README.md`](README.md) | Tools, build and run commands |
 
@@ -17,7 +18,7 @@ Required: CMake 3.20+, Ninja, a C++23 compiler (Clang or GCC). Optional but
 needed for formatting and linting: LLVM **21** (`clang-format`, `clang-tidy`).
 On Windows you also need the Visual Studio Build Tools (see the README).
 
-Dependencies (raylib, Asio, tomlplusplus, GoogleTest) are fetched by CPM at
+Dependencies (raylib, Asio, miniaudio, tomlplusplus, GoogleTest) are fetched by CPM at
 configure time, so the first configure needs network access. Downloaded
 sources are cached in `.cache/CPM`.
 
@@ -61,9 +62,9 @@ src/
   Shared/   code used by both sides
     Components/  passive ECS components (SC* structs)
     ECS/         entities, component pools, registry
-    Systems/     shared systems (gameplay, rendering interface, chat)
+    Systems/     shared systems (gameplay, rendering interface, chat, audio)
     Lobby*.hpp   lobby state and wire format
-    Types.hpp    UDP gameplay wire format
+    Types.hpp    UDP gameplay and voice wire format
 tests/      GoogleTest suites (one file per area)
 docs/       design and protocol documents
 assets/     textures, sounds, level data
@@ -80,8 +81,9 @@ files under a directory named `old/` are ignored. Tests are every `.cpp` in
 - **Server is authoritative.** It runs the simulation at a fixed 60 Hz and
   sends scene snapshots over UDP. The client sends input and renders the
   snapshots; it never decides gameplay outcomes.
-- **Two transports.** A TCP connection per player carries the handshake, the
-  lobby (rooms, launch) and chat. UDP carries player input and snapshots.
+- **Three transports.** A TCP connection per player carries the handshake, the
+  lobby (rooms, launch) and chat. Separate UDP endpoints carry gameplay and
+  voice frames. See [`docs/voice-chat.md`](docs/voice-chat.md).
 - **One game at a time.** The server has a single four-player simulation, so
   only one room can be in game at a time.
 - **Threads.** The client has a draw thread, a logic thread and a network
@@ -203,7 +205,7 @@ the style of the file you are editing.
 
 Other expectations:
 
-- Prefer the existing dependencies (raylib, Asio, tomlplusplus). Add a new one
+- Prefer the existing dependencies (raylib, Asio, miniaudio, tomlplusplus). Add a new one
   only when justified.
 - Rendering goes through `IRenderSystem` so that raylib can be replaced.
   Convert between raylib `Color` and `SColor` explicitly; do not

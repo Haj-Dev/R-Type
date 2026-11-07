@@ -58,7 +58,7 @@ void CLogicThread::run() {
 
 void CLogicThread::updateLocalSimulation(float delta) {
     SPLayerActions localActions;
-    const auto     localPlayerId = mLobbyState.playerId;
+    const auto     localPlayerId = mLobbyState.gameplayId;
     if (localPlayerId < SPLayerActions::MaxPlayers) {
         localActions.connected.at(localPlayerId) = true;
         localActions.states.at(localPlayerId)    = mPlayerActions.states.at(localPlayerId);

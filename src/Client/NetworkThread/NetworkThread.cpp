@@ -8,6 +8,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <system_error>
+#include <vector>
 
 CNetworkThread::CNetworkThread(asio::io_context& io, SSceneData& sceneData,
                                SPLayerActions& playerActions, std::mutex& sceneMutex,
@@ -19,7 +20,8 @@ CNetworkThread::CNetworkThread(asio::io_context& io, SSceneData& sceneData,
     mIo(io), mSceneData(sceneData), mPlayerActions(playerActions), mtex(sceneMutex), mRunning(running),
     mAuthoritativeState(authoritativeState), mStopCondition(stopCondition),
     mMasterAddress(masterAddress), mMasterPort(masterPort), mPreferredServer(preferredServer),
-    mLobbyState(lobbyState), mLobbyCommands(lobbyCommands), mSocket(io), mTcpSocket(io) {}
+    mLobbyState(lobbyState), mLobbyCommands(lobbyCommands), mSocket(io), mVoiceSocket(io),
+    mTcpSocket(io), mAudioSystem(std::make_unique<Audio::AAudioSystem>(Audio::makeMiniaudioBackend())) {}
 
 CNetworkThread::~CNetworkThread() {
     join();
@@ -42,6 +44,11 @@ void CNetworkThread::run() {
         mSocket.open(asio::ip::udp::v4());
         mSocket.bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), 0));
         mSocket.non_blocking(true);
+        mVoiceSocket.open(asio::ip::udp::v4());
+        mVoiceSocket.bind(asio::ip::udp::endpoint(asio::ip::udp::v4(), 0));
+        mVoiceSocket.non_blocking(true);
+        if (!mAudioSystem->start())
+            std::cerr << "[Client] Voice audio device unavailable\n";
 
         bool               selected = false;
         Lobby::SServerInfo server;
@@ -227,7 +234,8 @@ bool CNetworkThread::connectToGameServer(const Lobby::SServerInfo& server) {
         address = results.begin()->endpoint().address();
     }
 
-    mServerEndpoint = asio::ip::udp::endpoint(address, server.udpPort);
+    mServerEndpoint      = asio::ip::udp::endpoint(address, server.udpPort);
+    mVoiceServerEndpoint = asio::ip::udp::endpoint(address, server.udpPort + 1);
     mTcpBuffer.clear();
     if (mTcpSocket.close(error)) {
         std::cerr << "[Client] Failed to close previous server socket: " << error.message() << '\n';
@@ -236,8 +244,9 @@ bool CNetworkThread::connectToGameServer(const Lobby::SServerInfo& server) {
     if (mTcpSocket.connect(asio::ip::tcp::endpoint(address, server.tcpPort), error))
         return false;
 
-    const auto udpPort = mSocket.local_endpoint().port();
-    const auto hello   = Net::makeTcpHello(udpPort);
+    const auto udpPort   = mSocket.local_endpoint().port();
+    const auto voicePort = mVoiceSocket.local_endpoint().port();
+    const auto hello     = Net::makeTcpHello(udpPort, voicePort);
     asio::write(mTcpSocket, asio::buffer(hello), error);
     if (error)
         return false;
@@ -274,6 +283,7 @@ void CNetworkThread::runGameSession() {
             if (!mSpectating)
                 sendInput();
             receiveSnapshots(buffer);
+            processVoice();
         }
         std::unique_lock lock(mtex);
         if (!networkRate.wait(mStopCondition, lock, [this] { return !mRunning.load(); }))
@@ -315,6 +325,24 @@ void CNetworkThread::processLobbyCommands() {
             case Lobby::eClientCommand::REFRESH_SERVERS: break;
             case Lobby::eClientCommand::SEND_CHAT:
                 sendLobbyFrame(Net::makeChatSend(SCChatMessage{0, 0, {}, command.text}));
+                break;
+            case Lobby::eClientCommand::TOGGLE_MIC:
+                mLobbyState.microphoneEnabled = !mLobbyState.microphoneEnabled;
+                break;
+            case Lobby::eClientCommand::TOGGLE_DEAFEN:
+                mLobbyState.deafened = !mLobbyState.deafened;
+                for (std::uint8_t playerId = 0; playerId < Audio::MaxPlayers; ++playerId)
+                    mAudioSystem->setPlayerMuted(playerId, mLobbyState.deafened);
+                break;
+            case Lobby::eClientCommand::VOLUME_UP:
+                mLobbyState.voiceVolume = std::min(1.0F, mLobbyState.voiceVolume + 0.1F);
+                for (std::uint8_t playerId = 0; playerId < Audio::MaxPlayers; ++playerId)
+                    mAudioSystem->setPlayerVolume(playerId, mLobbyState.voiceVolume);
+                break;
+            case Lobby::eClientCommand::VOLUME_DOWN:
+                mLobbyState.voiceVolume = std::max(0.0F, mLobbyState.voiceVolume - 0.1F);
+                for (std::uint8_t playerId = 0; playerId < Audio::MaxPlayers; ++playerId)
+                    mAudioSystem->setPlayerVolume(playerId, mLobbyState.voiceVolume);
                 break;
         }
     }
@@ -400,11 +428,13 @@ void CNetworkThread::handleLobbyMessage(Net::eLobbyCommand command, const std::u
             mInGame     = false;
             mSpectating = false;
             mGameplayId = 0;
+            mVoiceHasSequence.fill(false);
             std::scoped_lock lock(mtex);
             mLobbyState.currentRoom.reset();
             mChatSystem.clearMessages(mLobbyState.chat);
             mLobbyState.phase = Lobby::eLobbyPhase::ROOM_LIST;
             mPlayerActions.connected.fill(false);
+            mLobbyState.gameplayId = 0;
             mAuthoritativeState.store(false);
             mSceneData.replaceEntities({});
             mSceneData.tick   = 0;
@@ -430,11 +460,12 @@ void CNetworkThread::handleLobbyMessage(Net::eLobbyCommand command, const std::u
                 mGameplayId = gameplayId;
             {
                 std::scoped_lock lock(mtex);
-                mLobbyState.phase = Lobby::eLobbyPhase::IN_GAME;
+                mLobbyState.phase      = Lobby::eLobbyPhase::IN_GAME;
+                mLobbyState.gameplayId = gameplayId;
                 mPlayerActions.connected.fill(false);
                 if (!mSpectating) {
-                    mPlayerActions.connected.at(mPlayerId) = true;
-                    mPlayerActions.states.at(mPlayerId)    = SPlayerActionState{};
+                    mPlayerActions.connected.at(mGameplayId) = true;
+                    mPlayerActions.states.at(mGameplayId)    = SPlayerActionState{};
                     mSceneData.replaceEntities({});
                     mSceneData.tick = 0;
                 }
@@ -442,7 +473,9 @@ void CNetworkThread::handleLobbyMessage(Net::eLobbyCommand command, const std::u
             mAuthoritativeState.store(false);
             mLastReceivedTick = 0;
             mHasReceivedTick  = false;
-            mInGame           = true;
+            mVoiceSequence    = 0;
+            mVoiceHasSequence.fill(false);
+            mInGame = true;
             mStopCondition.notify_all();
             break;
         }
@@ -479,6 +512,61 @@ void CNetworkThread::sendInput() {
     }
     const auto input = Net::makeInput(action);
     mSocket.send_to(asio::buffer(input), mServerEndpoint);
+}
+
+void CNetworkThread::processVoice() {
+    bool microphoneEnabled = false;
+    bool deafened          = false;
+    {
+        std::scoped_lock lock(mtex);
+        microphoneEnabled = mLobbyState.microphoneEnabled;
+        deafened          = mLobbyState.deafened;
+    }
+
+    if (microphoneEnabled && mAudioSystem->running()) {
+        std::array<float, Audio::SamplesPerFrame> samples{};
+        if (mAudioSystem->captureVoice(samples)) {
+            std::vector<std::uint8_t> encoded;
+            if (mVoiceCodec.encode(samples, encoded)) {
+                const auto       packet = Net::makeVoice(mGameplayId, mVoiceSequence++, encoded);
+                asio::error_code error;
+                mVoiceSocket.send_to(asio::buffer(packet), mVoiceServerEndpoint, 0, error);
+                if (error)
+                    std::cerr << "[Client] Failed to send voice frame: " << error.message() << '\n';
+            }
+        }
+    }
+
+    std::array<std::uint8_t, Net::MaxUdpPayloadSize> buffer{};
+    for (;;) {
+        asio::ip::udp::endpoint sender;
+        asio::error_code        error;
+        const auto              size = mVoiceSocket.receive_from(asio::buffer(buffer), sender, 0, error);
+        if (error == asio::error::would_block || error == asio::error::try_again)
+            break;
+        if (error) {
+            std::cerr << "[Client] Voice receive error: " << error.message() << '\n';
+            break;
+        }
+        if (deafened)
+            continue;
+        std::uint8_t              playerId = 0;
+        std::uint16_t             sequence = 0;
+        std::vector<std::uint8_t> encoded;
+        if (Net::readVoice(buffer.data(), size, playerId, sequence, encoded) &&
+            playerId != mGameplayId) {
+            const bool newerSequence = !mVoiceHasSequence.at(playerId) ||
+                (sequence != mVoiceLastSequence.at(playerId) &&
+                 static_cast<std::uint16_t>(sequence - mVoiceLastSequence.at(playerId)) < 0x8000U);
+            if (!newerSequence)
+                continue;
+            mVoiceHasSequence.at(playerId)  = true;
+            mVoiceLastSequence.at(playerId) = sequence;
+            std::vector<float> samples;
+            if (mVoiceCodec.decode(encoded, samples))
+                mAudioSystem->playVoice(playerId, samples);
+        }
+    }
 }
 
 void CNetworkThread::receiveSnapshots(std::vector<std::uint8_t>& buffer) {

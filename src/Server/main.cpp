@@ -17,6 +17,7 @@ namespace {
         std::string   advertisedAddress = "127.0.0.1";
         std::uint16_t tcpPort           = Net::DefaultTcpPort;
         std::uint16_t udpPort           = Net::DefaultUdpPort;
+        std::uint16_t voicePort         = Net::DefaultVoicePort;
     };
 
     [[nodiscard]] std::uint16_t parsePort(const char* value) {
@@ -39,6 +40,8 @@ namespace {
                 options.tcpPort = parsePort(argv[++index]);
             } else if (argument == "--udp-port" && index + 1 < argc) {
                 options.udpPort = parsePort(argv[++index]);
+            } else if (argument == "--voice-port" && index + 1 < argc) {
+                options.voicePort = parsePort(argv[++index]);
             } else if (argument == "--master-port" && index + 1 < argc) {
                 options.masterPort = parsePort(argv[++index]);
             } else {
@@ -63,7 +66,7 @@ int main(int argc, char* argv[]) {
 
         const auto       options = parseServerOptions(argc, argv);
         asio::io_context io;
-        CServer          server(io, options.tcpPort, options.udpPort,
+        CServer          server(io, options.tcpPort, options.udpPort, options.voicePort,
                                 SMasterConfig{
                                     .masterAddress     = options.masterAddress,
                                     .masterPort        = options.masterPort,
