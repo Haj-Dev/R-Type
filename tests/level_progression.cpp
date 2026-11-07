@@ -181,7 +181,7 @@ TEST(LevelProgression, FinishedCampaignStopsClientSimulation) {
     Game::CSimulation simulation = Game::CSimulation::deterministic();
     simulation.synchronize({levelEntity, playerEntity}, 0);
     SPLayerActions actions;
-    actions.connected[0] = true;
+    actions.connected[0]    = true;
     actions.states[0].right = true;
     simulation.applyActions(actions);
     simulation.tick(1.0F, false);
@@ -189,8 +189,8 @@ TEST(LevelProgression, FinishedCampaignStopsClientSimulation) {
     CComponentRegistry components;
     for (const auto& entity : simulation.snapshot()) {
         for (const auto& bytes : entity.components) {
-            const auto component = components.deserialize(bytes);
-            const auto* actual = dynamic_cast<const SCPosition*>(component.get());
+            const auto  component = components.deserialize(bytes);
+            const auto* actual    = dynamic_cast<const SCPosition*>(component.get());
             if (actual != nullptr && entity.id == playerEntity.id) {
                 EXPECT_FLOAT_EQ(actual->x, 100.0F);
                 EXPECT_FLOAT_EQ(actual->y, 180.0F);

@@ -40,10 +40,9 @@ namespace Game {
 
         void tick(float delta, bool isServer = true) {
             bool campaignFinished = false;
-            registry_.each<SCLevelState>(
-                [&campaignFinished](Ecs::SEntity, const SCLevelState& state) {
-                    campaignFinished = campaignFinished || state.finished;
-                });
+            registry_.each<SCLevelState>([&campaignFinished](Ecs::SEntity, const SCLevelState& state) {
+                campaignFinished = campaignFinished || state.finished;
+            });
             if (campaignFinished)
                 return;
 
