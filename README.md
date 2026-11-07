@@ -16,6 +16,7 @@ it is not part of the gameplay data path.
 - UDP gameplay input and authoritative snapshots
 - Rooms for up to four players
 - In-game room chat
+- Five-level campaign with server-authoritative level transitions
 - Room voice chat with microphone mute, deafen, and volume controls
 - Shared ECS used by the server simulation and client render world
 - Unit tests for ECS, networking, controls, rooms, chat, and simulation
@@ -204,6 +205,9 @@ the selected game server:
 ```bash
 ./build/debug/r-type_client 127.0.0.1
 ```
+
+During a game, clear each level's enemy waves to continue. A three-second
+intermission separates the five levels; the final level ends the campaign.
 
 To select a server by name without using the selection screen:
 

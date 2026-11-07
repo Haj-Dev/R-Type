@@ -7,10 +7,12 @@
 #include "DrawableSpriteAtlas.hpp"
 #include "EntityType.hpp"
 #include "Health.hpp"
+#include "LevelState.hpp"
 #include "Player.hpp"
 #include "Position.hpp"
 #include "Projectile.hpp"
 #include "Velocity.hpp"
+#include "Weapon.hpp"
 #include "Shared/ECS/ECS.hpp"
 
 #include <functional>
@@ -46,6 +48,9 @@ class CComponentRegistry {
         registerType<SCDrawableSpriteAtlas>();
         registerType<SCEntityType>();
         registerType<SCChatMessage>();
+        registerType<SCLevelState>();
+        registerType<SCWeapon>();
+        registerType<SCPowerUp>();
     }
 
     template <typename T>
