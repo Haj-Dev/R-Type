@@ -39,6 +39,13 @@ namespace Game {
         }
 
         void tick(float delta, bool isServer = true) {
+            bool campaignFinished = false;
+            registry_.each<SCLevelState>([&campaignFinished](Ecs::SEntity, const SCLevelState& state) {
+                campaignFinished = campaignFinished || state.finished;
+            });
+            if (campaignFinished)
+                return;
+
             playerSystem_.synchronizeConnectedPlayers(registry_, actions_, isServer);
             playerSystem_.update(registry_, actions_, delta);
             movementSystem_.update(registry_, delta);

@@ -282,7 +282,7 @@ namespace Game {
 
         static CEnemySpawnSystem campaign() {
             return CEnemySpawnSystem({
-                "assets/maps/init.toml",
+                "assets/maps/level_1.toml",
                 "assets/maps/level_2.toml",
                 "assets/maps/level_3.toml",
                 "assets/maps/level_4.toml",
