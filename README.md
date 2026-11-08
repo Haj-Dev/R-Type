@@ -16,7 +16,8 @@ it is not part of the gameplay data path.
 - UDP gameplay input and authoritative snapshots
 - Rooms for up to four players
 - In-game room chat
-- Five-level campaign with server-authoritative level transitions
+- Five-level campaign with a level indicator, server-authoritative transitions,
+  and a campaign-complete screen after the final level
 - Room voice chat with microphone mute, deafen, and volume controls
 - Shared ECS used by the server simulation and client render world
 - Unit tests for ECS, networking, controls, rooms, chat, and simulation

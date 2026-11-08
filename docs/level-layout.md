@@ -2,7 +2,7 @@
 
 The server loads a campaign of five TOML files in order:
 
-1. `assets/maps/init.toml` — first, introductory level
+1. `assets/maps/level_1.toml` — first, introductory level
 2. `assets/maps/level_2.toml`
 3. `assets/maps/level_3.toml`
 4. `assets/maps/level_4.toml`
@@ -11,7 +11,8 @@ The server loads a campaign of five TOML files in order:
 Each file contains one `[[enemies]]` table per spawn wave. The server starts
 the next level after every wave has spawned and no enemies remain in the world.
 Enemies that leave the screen count as cleared. A three-second intermission
-separates levels. Clearing the fifth level completes the campaign.
+separates levels. The HUD shows the current level and campaign length. Clearing
+the fifth level ends the simulation and displays the campaign-complete screen.
 
 ## Enemy waves
 

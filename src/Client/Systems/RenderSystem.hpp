@@ -55,14 +55,14 @@ class CRenderSystem : public IRenderSystem {
     void draw(Ecs::CRegistry& registry, std::uint64_t currentTick) const override {
         renderer_.draw(registry, currentTick);
         registry.each<SCLevelState>([](Ecs::SEntity, const SCLevelState& state) {
-            DrawRectangle(20, 20, 210, 46, Fade(BLACK, 0.65F));
+            DrawRectangle(1050, 20, 210, 46, Fade(BLACK, 0.65F));
             DrawText(TextFormat("LEVEL %u / %u", static_cast<unsigned>(state.level),
                                 static_cast<unsigned>(state.totalLevels)),
-                     32, 32, 20, RAYWHITE);
+                     1062, 32, 20, RAYWHITE);
             if (state.transitionRemaining > 0.0F) {
                 DrawText(TextFormat("AREA CLEAR - NEXT IN %d",
                                     static_cast<int>(std::ceil(state.transitionRemaining))),
-                         250, 32, 20, GOLD);
+                         930, 78, 20, GOLD);
             } else if (state.finished) {
                 DrawRectangle(350, 300, 580, 110, Fade(BLACK, 0.8F));
                 DrawText("CAMPAIGN COMPLETE", 405, 338, 32, GOLD);

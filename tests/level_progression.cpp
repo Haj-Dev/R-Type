@@ -24,7 +24,7 @@ namespace {
     std::filesystem::path sourceRoot() {
         auto path = std::filesystem::current_path();
         while (!path.empty()) {
-            if (std::filesystem::exists(path / "assets/maps/init.toml"))
+            if (std::filesystem::exists(path / "assets/maps/level_1.toml"))
                 return path;
             const auto parent = path.parent_path();
             if (parent == path)
@@ -38,7 +38,7 @@ namespace {
 TEST(LevelProgression, CampaignLoadsAllFiveLevelFiles) {
     const auto                     root = sourceRoot();
     const std::vector<std::string> files{
-        (root / "assets/maps/init.toml").string(),    (root / "assets/maps/level_2.toml").string(),
+        (root / "assets/maps/level_1.toml").string(), (root / "assets/maps/level_2.toml").string(),
         (root / "assets/maps/level_3.toml").string(), (root / "assets/maps/level_4.toml").string(),
         (root / "assets/maps/level_5.toml").string(),
     };
@@ -101,6 +101,11 @@ TEST(LevelProgression, WaitsForClearAndTransitionsBetweenLevels) {
     state = progression.state();
     EXPECT_EQ(state.level, 2U);
     EXPECT_TRUE(state.finished);
+
+    progression.update(registry, 10.0F);
+    state = progression.state();
+    EXPECT_EQ(state.level, 2U);
+    EXPECT_TRUE(state.finished);
 }
 
 TEST(LevelProgression, DoesNotAdvanceWhileEnemiesRemain) {
@@ -156,4 +161,42 @@ TEST(LevelProgression, SnapshotCarriesAuthoritativeLevelToClient) {
         }
     }
     FAIL() << "server snapshot did not include level state";
+}
+
+TEST(LevelProgression, FinishedCampaignStopsClientSimulation) {
+    Game::SEntityComponents levelEntity;
+    levelEntity.id = 1;
+    SCLevelState finishedState{1U, 1U, 0.0F, true};
+    finishedState.serialize(levelEntity.components.emplace_back());
+
+    Game::SEntityComponents playerEntity;
+    playerEntity.id = 2;
+    SCPosition position{100.0F, 180.0F};
+    position.serialize(playerEntity.components.emplace_back());
+    SCPlayer player{0};
+    player.serialize(playerEntity.components.emplace_back());
+    SCEntityType type{Game::eEntityKind::PLAYER};
+    type.serialize(playerEntity.components.emplace_back());
+
+    Game::CSimulation simulation = Game::CSimulation::deterministic();
+    simulation.synchronize({levelEntity, playerEntity}, 0);
+    SPLayerActions actions;
+    actions.connected[0]    = true;
+    actions.states[0].right = true;
+    simulation.applyActions(actions);
+    simulation.tick(1.0F, false);
+
+    CComponentRegistry components;
+    for (const auto& entity : simulation.snapshot()) {
+        for (const auto& bytes : entity.components) {
+            const auto  component = components.deserialize(bytes);
+            const auto* actual    = dynamic_cast<const SCPosition*>(component.get());
+            if (actual != nullptr && entity.id == playerEntity.id) {
+                EXPECT_FLOAT_EQ(actual->x, 100.0F);
+                EXPECT_FLOAT_EQ(actual->y, 180.0F);
+                return;
+            }
+        }
+    }
+    FAIL() << "finished simulation snapshot did not include the player position";
 }

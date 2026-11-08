@@ -16,7 +16,7 @@ struct SUpdateConfig {
 const SUpdateConfig SNAPSHOT_POLICY = {.interval = 60, .offset = 0};
 
 /// The snapshot components define which components are included in the snapshot sent to the clients.
-const std::array<AComponent::eType, 10> SNAPSHOT_COMPONENTS = {
+const std::array<AComponent::eType, 11> SNAPSHOT_COMPONENTS = {
     AComponent::eType::POSITION,
     AComponent::eType::VELOCITY,
     AComponent::eType::HEALTH,
@@ -27,6 +27,7 @@ const std::array<AComponent::eType, 10> SNAPSHOT_COMPONENTS = {
     AComponent::eType::DRAWABLE_SPRITE,
     AComponent::eType::DRAWABLE_SPRITE_ATLAS,
     AComponent::eType::ENTITY_TYPE,
+    AComponent::eType::LEVEL_STATE,
 };
 
 // NOLINTBEGIN
@@ -38,6 +39,7 @@ inline const std::map<AComponent::eType, SUpdateConfig> COMPONENT_UPDATE_POLICY 
     {AComponent::eType::VELOCITY, {.interval = 10, .offset = 1}},
     {AComponent::eType::PLAYER, {.interval = 20, .offset = 4}},
     {AComponent::eType::HEALTH, {.interval = 20, .offset = 13}},
+    {AComponent::eType::LEVEL_STATE, {.interval = 20, .offset = 0}},
 };
 // NOLINTEND
 
