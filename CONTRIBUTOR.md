@@ -181,10 +181,11 @@ the `CHAT_SEND` / `CHAT_MESSAGE` commands and `CChatUI`.
 ## 7. Levels
 
 The five-level campaign uses `.toml` files in `assets/maps/`. The first level
-is `init.toml`; levels two through five are `level_2.toml` to `level_5.toml`.
+is `level_1.toml`; levels two through five are `level_2.toml` to `level_5.toml`.
 Each `[[enemies]]` table defines a spawn wave and optional `[[powerups]]`
 tables place fixed weapon pickups. Supported keys, weapon types and level
-transition rules are documented in [`docs/level-layout.md`](docs/level-layout.md).
+transition rules, the HUD level indicator and campaign completion are
+documented in [`docs/level-layout.md`](docs/level-layout.md).
 
 ## 8. Code style
 

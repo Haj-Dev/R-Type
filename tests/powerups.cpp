@@ -14,7 +14,7 @@ namespace {
     std::filesystem::path sourceRoot() {
         auto path = std::filesystem::current_path();
         while (!path.empty()) {
-            if (std::filesystem::exists(path / "assets/maps/init.toml"))
+            if (std::filesystem::exists(path / "assets/maps/level_1.toml"))
                 return path;
             const auto parent = path.parent_path();
             if (parent == path)
@@ -50,7 +50,7 @@ namespace {
 TEST(PowerUps, FixedPickupsLoadFromTheFirstLevel) {
     const auto              root = sourceRoot();
     Game::CEnemySpawnSystem campaign({
-        (root / "assets/maps/init.toml").string(),
+        (root / "assets/maps/level_1.toml").string(),
         (root / "assets/maps/level_2.toml").string(),
         (root / "assets/maps/level_3.toml").string(),
         (root / "assets/maps/level_4.toml").string(),
@@ -81,7 +81,7 @@ TEST(PowerUps, FixedPickupsLoadFromTheFirstLevel) {
 TEST(PowerUps, EveryLevelDefinesValidFixedPickupLocations) {
     const auto                     root = sourceRoot();
     const std::vector<std::string> files{
-        "init.toml", "level_2.toml", "level_3.toml", "level_4.toml", "level_5.toml",
+        "level_1.toml", "level_2.toml", "level_3.toml", "level_4.toml", "level_5.toml",
     };
 
     for (const auto& file : files) {

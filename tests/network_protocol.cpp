@@ -1,5 +1,7 @@
 #include "Shared/Types.hpp"
+#include "Server/NetworkThread/NetworkPolicy.hpp"
 
+#include <algorithm>
 #include <gtest/gtest.h>
 
 #include <vector>
@@ -100,6 +102,12 @@ TEST(NetworkProtocol, SnapshotRoundTripsMultipleAndEmptyEntities) {
     EXPECT_EQ(decoded.at(1).id, 9U);
     EXPECT_EQ(decoded.at(1).creationTick, 88U);
     EXPECT_TRUE(decoded.at(1).components.empty());
+}
+
+TEST(NetworkProtocol, LevelStateIsIncludedInSnapshotsAndUpdates) {
+    EXPECT_NE(std::ranges::find(SNAPSHOT_COMPONENTS, AComponent::eType::LEVEL_STATE),
+              SNAPSHOT_COMPONENTS.end());
+    EXPECT_TRUE(COMPONENT_UPDATE_POLICY.contains(AComponent::eType::LEVEL_STATE));
 }
 
 TEST(NetworkProtocol, SnapshotRejectsUnknownComponent) {
