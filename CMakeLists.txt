@@ -176,9 +176,15 @@ endif()
 # Warning flags live on an INTERFACE target so they only apply to our own
 # targets (never to raylib/asio/googletest) and work for header-only libs too.
 add_library(rtype_warnings INTERFACE)
+if(WIN32)
+target_compile_options(rtype_warnings INTERFACE
+  -Wall -pedantic-errors
+)
+else()
 target_compile_options(rtype_warnings INTERFACE
   -Wall -Wextra -Wpedantic -pedantic-errors
 )
+endif()
 
 # Applies platform-specific link settings to one of our executables.
 function(rtype_configure_executable target)
